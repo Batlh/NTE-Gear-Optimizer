@@ -1,2 +1,5 @@
 * text=auto eol=lf
 *.zip binary
+*.ttf binary
+*.png binary
+*.apk binary

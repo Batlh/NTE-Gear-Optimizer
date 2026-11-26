@@ -1,0 +1,27 @@
+[
+  {
+    "File": "Kivy_MIT.txt",
+    "URL": "https://raw.githubusercontent.com/kivy/kivy/2.3.2/LICENSE",
+    "SHA256": "F8B1BD65ACC9555B0D207C86B334AE6EDD40155DDA68FDB8D8D6D2AFF324E70D"
+  },
+  {
+    "File": "SDL2_zlib.txt",
+    "URL": "https://raw.githubusercontent.com/libsdl-org/SDL/release-2.30.12/LICENSE.txt",
+    "SHA256": "97F35B302B361680EC1E891E95D2D52097BB95ABFF361434916D99DC1305F127"
+  },
+  {
+    "File": "CPython_PSF.txt",
+    "URL": "https://raw.githubusercontent.com/python/cpython/v3.14.2/LICENSE",
+    "SHA256": "B0E25A78CFFB43F4D92DE8B61CCFA1F1F98ECBC22330B54B5251E7B6BA010231"
+  },
+  {
+    "File": "PyInstaller_GPL_EXCEPTION.txt",
+    "URL": "https://raw.githubusercontent.com/pyinstaller/pyinstaller/v6.22.3/COPYING.txt",
+    "SHA256": "0598064C7D2718E38D7914A7D08343B2FA008E3BEA9EBBA2AA7A6FFA5900DD64"
+  },
+  {
+    "File": "OpenSSL_APACHE2.txt",
+    "URL": "https://raw.githubusercontent.com/openssl/openssl/openssl-3.5.0/LICENSE.txt",
+    "SHA256": "7D5450CB2D142651B8AFA315B5F238EFC805DAD827D91BA367D8516BC9D49E7A"
+  }
+]

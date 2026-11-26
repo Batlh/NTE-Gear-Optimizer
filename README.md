@@ -13,8 +13,10 @@ relicensed under MIT.
 Phase 1B-1 adds the pure comparison core: branch-bound profiles, scoped validation,
 panel channels, static factors, robust unknown/branch evaluation, guide reference
 alignment and recommendations. Display-only Lv80 projection and the separate
-heuristic item scorer are included. There is no user interface or user-data
-import/export module. This is a review candidate, not a release.
+heuristic item scorer are included. Phase 2A adds a German four-step Kivy app for Windows and Android debug tests.
+There is no user-data import/export or persistent storage. This is a review
+candidate, not a release. Launch with `python main.py` after installing
+`requirements-app.txt`; device test instructions are in HANDYTEST_2A.md.
 
 CPython CI tests 3.14.10; web-core tests Pyodide 314.0.8 (Python 3.14.2), comparing
 all semantic outputs. Python 3.14 is the selected project line (PLATTFORM-14).
@@ -37,8 +39,11 @@ Phase 1B-1 ergänzt den reinen Vergleichskern: zweiggebundene Profile, lokale
 Validierung, Panelkanäle, statische Faktoren, robuste Auswertung unbekannter
 Faktoren und Zweige sowie Guide-Bezugsbasis und Empfehlungen. Die reine
 Lv80-Anzeigeprojektion und die getrennte heuristische Teilebewertung sind enthalten.
-Es gibt keine Oberfläche und kein Import-/Export-Modul für Nutzerdaten.
-Dieser Stand ist ein Review-Kandidat, kein Release.
+Phase 2A ergänzt eine deutsche Kivy-App mit vier Schritten für Windows und
+Android-Debugtests. Es gibt kein Speichern und kein Import-/Export-Modul.
+Dieser Stand ist ein Review-Kandidat, kein Release. Nach Installation von
+`requirements-app.txt` startet `python main.py` die App. Der Handytest steht
+in HANDYTEST_2A.md.
 
 Die CPython-CI prüft 3.14.10; web-core prüft Pyodide 314.0.8 (Python 3.14.2) und
 vergleicht sämtliche semantischen Ausgaben. Python 3.14 ist die ausgewählte

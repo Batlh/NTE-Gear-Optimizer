@@ -1,0 +1,5 @@
+buildozer==1.6.0
+Cython==3.3.2
+setuptools==84.2.1
+packaging==26.4
+virtualenv==21.15.13

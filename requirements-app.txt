@@ -1,0 +1,4 @@
+Kivy==2.3.2
+Pillow==13.0.0
+PyInstaller==6.22.3
+fonttools==4.69.1

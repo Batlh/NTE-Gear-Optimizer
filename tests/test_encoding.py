@@ -30,3 +30,28 @@ def test_import_real_unicode_roundtrip(tmp_path):
 
 def test_branch_text_encoding():
     assert scan(ROOT)=={}
+
+
+def test_standalone_filesystem_fallback(tmp_path,monkeypatch):
+    import check_encoding
+    def forbidden(*args,**kwargs):raise AssertionError('Git must not be invoked without .git')
+    monkeypatch.setattr(check_encoding.subprocess,'check_output',forbidden)
+    with (tmp_path/'example.txt').open('x',encoding='utf-8',newline='\n') as stream:
+        stream.write('äöü ß –\n')
+    for folder in ['.tools','build','dist','.venv']:
+        (tmp_path/folder).mkdir()
+        (tmp_path/folder/'invalid.bin').write_bytes(b'\xff')
+    assert check_encoding.file_list(tmp_path)==[Path('example.txt')]
+    assert check_encoding.scan(tmp_path)=={}
+    (tmp_path/'broken.txt').write_bytes(b'\xff')
+    assert check_encoding.scan(tmp_path)=={'broken.txt':['INVALID_UTF8']}
+
+
+def test_git_unavailable_falls_back(tmp_path,monkeypatch):
+    import check_encoding
+    (tmp_path/'.git').mkdir()
+    with (tmp_path/'data.tsv').open('x',encoding='utf-8',newline='\n') as stream:
+        stream.write('Name\nÄ\n')
+    def unavailable(*args,**kwargs):raise FileNotFoundError('git missing')
+    monkeypatch.setattr(check_encoding.subprocess,'check_output',unavailable)
+    assert check_encoding.scan(tmp_path)=={}

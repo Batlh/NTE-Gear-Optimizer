@@ -58,6 +58,7 @@ def install_probe(app):
             'frame': [frame.left, frame.top, frame.right, frame.bottom],
             'step': app.vm.step,
             'scroll_y': app.scroll.scroll_y,
+            'page_scroll': rect(app.scroll),
             'character_id': app.vm.character_id,
             'ark_id': app.vm.ark_id,
             'profile_id': app.vm.profile_id,

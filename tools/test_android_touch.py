@@ -48,20 +48,21 @@ def tap(rect, s):
     adb('shell', 'input', 'tap', str(x), str(y))
 
 
-def swipe(rect, s):
+def swipe(rect, s, reverse=False):
     # Software-rendered CI can coalesce a 280 ms gesture into one sample.
     # Use an actual one-second adb gesture so down/move/up reach SDL frames.
     x, y, w, h = rect
     cx = int(s['frame'][0] + x + w / 2)
     top = int(s['frame'][1] + s['window'][1] - (y + h))
+    start, end = (0.25, 0.80) if reverse else (0.80, 0.25)
     adb(
         'shell',
         'input',
         'swipe',
         str(cx),
-        str(top + h * 0.80),
+        str(top + h * start),
         str(cx),
-        str(top + h * 0.25),
+        str(top + h * end),
         '1000',
     )
 
@@ -79,15 +80,27 @@ def visible(rect, viewport):
 
 def open_list(label):
     s = state()
-    for _ in range(12):
+    previous = None
+    stable = 0
+    for _ in range(24):
         r = s['selectors'][label]['rect']
-        if r[1] >= 140 and r[1] + r[3] < s['window'][1] - 150:
-            tap(r, s)
-            break
-        if r[1] < 140:
-            adb('shell', 'input', 'swipe', '500', '1300', '500', '500', '1000')
+        viewport = s['page_scroll']
+        if visible(r, viewport):
+            if (
+                previous is not None
+                and max(abs(a - b) for a, b in zip(r, previous)) < 1
+            ):
+                stable += 1
+            else:
+                stable = 0
+            previous = r
+            if stable >= 2:
+                tap(r, s)
+                break
         else:
-            adb('shell', 'input', 'swipe', '500', '500', '500', '1300', '1000')
+            stable = 0
+            previous = None
+            swipe(viewport, s, reverse=r[1] + r[3] > viewport[1] + viewport[3])
         s = fresh()
     else:
         raise AssertionError('Selector not reachable: ' + label)
@@ -272,7 +285,7 @@ try:
     s = fresh()
     assert not s['inputs']['current:ScaleDirect']['focus']
     old = s['scroll_y']
-    adb('shell', 'input', 'swipe', '500', '1300', '500', '500', '1000')
+    swipe(s['page_scroll'], s)
     s = fresh()
     assert abs(s['scroll_y'] - old) > 0.001, 'Page swipe did not scroll'
     devices = sorted({event['device'] for event in s.get('motions', [])})

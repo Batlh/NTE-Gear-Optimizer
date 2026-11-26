@@ -4,6 +4,7 @@ Inputs are canonical values and released records, not persisted calculations.
 The I/O layer is deliberately outside this pure core.
 """
 from dataclasses import replace
+from .decision import invalidate_decision
 from ..models.profile_state import effective_profile
 from ..numbers import number,text,isolated,ValueUnavailable
 from ..guide.reference import reference,rank_verdict,quarantine_optional_targets
@@ -27,7 +28,7 @@ def apply_condition(result, conditional_factors):
     lo=out.get('RatioMin') or out.get('RawRatio')
     hi=out.get('RatioMax') or out.get('RawRatio')
     if lo is None or hi is None:
-        return {**out,'OutputStatus':'INDETERMINATE_CONDITIONAL_COMPONENT','Verdict':None,'RawRatio':None}
+        return invalidate_decision(out, OutputStatus='INDETERMINATE_CONDITIONAL_COMPONENT')
     candidates=[]
     try:
         for condition in conditional_factors:
@@ -41,11 +42,10 @@ def apply_condition(result, conditional_factors):
                    RawRatio=text(lower) if lower==upper else None,
                    VerdictRatio=round_ratio(text(lower)).rounded if lower==upper else None)
         if len(verdicts)!=1:
-            out.update(OutputStatus='INDETERMINATE_CONDITIONAL_COMPONENT',Verdict=None,Recommendation=None)
+            out=invalidate_decision(out, OutputStatus='INDETERMINATE_CONDITIONAL_COMPONENT')
         else:out['Verdict']=next(iter(verdicts))
     except ValueUnavailable as exc:
-        out.update(OutputStatus='INDETERMINATE_CONDITIONAL_COMPONENT',Verdict=None,
-                   BaseProxyRatio=out.get('RawRatio'),RawRatio=None,Recommendation=None,Diagnostics=[str(exc)])
+        out=invalidate_decision(out, BaseProxyRatio=out.get('RawRatio'), OutputStatus='INDETERMINATE_CONDITIONAL_COMPONENT',Diagnostics=[str(exc)])
     return out
 
 @isolated
@@ -77,8 +77,7 @@ def compare(values, release_profile, *, branches=(), expected_branch_ids=None,
         profile_id=release_profile.get('BuildProfileID')
         relevant=[b for b in branches if selected is None or b.branch_id==selected]
         if profile_id is not None and any(b.profile.get('BuildProfileID')!=profile_id for b in relevant):
-            return {**out,'OutputStatus':MISSING,'RawRatio':None,'Verdict':None,
-                    'ProductDerivationStatus':'FAIL','Diagnostics':['BuildProfileID: Zweig gehört nicht zum Profil']}
+            return invalidate_decision(out, clear_nested=True, OutputStatus=MISSING, ProductDerivationStatus='FAIL', Diagnostics=['BuildProfileID: Zweig gehört nicht zum Profil'])
         effective=[]
         for b in branches:
             p=effective_profile({**release_profile,**b.profile},values,
@@ -101,13 +100,12 @@ def compare(values, release_profile, *, branches=(), expected_branch_ids=None,
             if selected is not None:
                 out.update(evaluated[0])
             elif any(r.get('OutputStatus')=='INDETERMINATE_CONDITIONAL_COMPONENT' for r in evaluated):
-                out.update(OutputStatus='INDETERMINATE_CONDITIONAL_COMPONENT',Verdict=None,RawRatio=None,Recommendation=None)
+                out=invalidate_decision(out, clear_nested=True, OutputStatus='INDETERMINATE_CONDITIONAL_COMPONENT')
         else:out=apply_condition(out,conditional_factors)
     if layout_issue is not None:
-        out.update(BuildOutcome=layout_issue.outcome,ErrorCode=layout_issue.code,
-                   OutputStatus=MISSING,Verdict=None,RawRatio=None,Recommendation=layout_issue.help)
+        out=invalidate_decision(out, clear_nested=True, BuildOutcome=layout_issue.outcome, ErrorCode=layout_issue.code, OutputStatus=MISSING, Diagnostics=[*out.get('Diagnostics',[]),layout_issue.help])
     if ruleset=='UNKNOWN':
-        out.update(OutputStatus=MISSING,Verdict=None,RawRatio=None,Recommendation=None)
+        out=invalidate_decision(out, clear_nested=True, OutputStatus=MISSING)
     elif ruleset=='SUPERSEDED':
         out.update(Notice='RULESET_SUPERSEDED_UNVERIFIED',RecommendationQualification='VORLÄUFIG')
     return out

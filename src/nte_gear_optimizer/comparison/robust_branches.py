@@ -1,5 +1,6 @@
 """OPB-03/09: enumerate unknown scenarios and released branches; never average."""
 from itertools import product
+from .decision import invalidate_decision
 from dataclasses import dataclass, field
 from typing import Mapping
 from ..numbers import number, text, isolated, ValueUnavailable
@@ -68,7 +69,7 @@ def evaluate_profile(values, profile, *, offset_status='ZERO', offset_minimum=No
     result.update(AffineStatus=status,AffineThresholdRatio=threshold)
     if result['OutputStatus']=='READY' and status in ('FIXED_OFFSET_NEAR_THRESHOLD',
             'AFFINE_OFFSET_NOT_MODELLED','FIXED_OFFSET_THRESHOLD_DATA_UNAVAILABLE'):
-        result.update(OutputStatus='NICHT_ENTSCHEIDBAR',Verdict=None,VerdictRatio=None,Recommendation=None)
+        result=invalidate_decision(result, BaseProxyRatio=result.get('RawRatio'), OutputStatus='NICHT_ENTSCHEIDBAR')
     if status=='FIXED_OFFSET_STATUS_UNKNOWN':result['Notice']=status
     return result
 

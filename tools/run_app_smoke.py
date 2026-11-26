@@ -54,6 +54,20 @@ assert report['result']['engine']['Deltas']['ScaleDirect'] == '10'
 assert report['frozen'] == bool(args.exe)
 screenshots = list(out.glob('step_*.png'))
 assert len(screenshots) == 4
+from PIL import Image, ImageStat
+
+for screenshot in screenshots:
+    with Image.open(screenshot) as image:
+        # Exclude window chrome: a title bar over a black client is not proof.
+        client = image.convert('RGB').crop(
+            (20, 80, image.width - 20, image.height - 60)
+        )
+        assert max(ImageStat.Stat(client).stddev) > 10, ('Blank screenshot', screenshot)
+        assert len(client.getcolors(1000000) or []) > 50, (
+            'No rendered controls',
+            screenshot,
+        )
+
 with (out / 'files.json').open('x', encoding='utf-8', newline='\n') as target:
     json.dump(
         {

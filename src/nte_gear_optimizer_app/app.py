@@ -10,7 +10,9 @@ Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 Config.set('kivy', 'exit_on_escape', '0')
 if os.environ.get('NTE_TEST_MODE') == 'smoke':
     Config.set('graphics', 'width', '900')
-    Config.set('graphics', 'height', '980')
+    Config.set(
+        'graphics', 'height', '700' if __import__('sys').platform == 'win32' else '980'
+    )
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.text import LabelBase
@@ -411,9 +413,28 @@ class ComparisonApp(App):
         Clock.schedule_once(lambda dt: self.capture_and_advance(out), 0.7)
 
     def capture_and_advance(self, out):
-        Window.screenshot(
-            name=str(out / ('step_' + str(self.smoke_index + 1) + '.png'))
-        )
+        if __import__('sys').platform == 'win32':
+            # ANGLE's default-framebuffer readback can be black after swap.
+            # Capture the actual isolated CI window, not an invented rendering.
+            import ctypes
+            from ctypes import wintypes
+            from PIL import ImageGrab
+
+            find = ctypes.windll.user32.FindWindowW
+            find.restype = wintypes.HWND
+            find.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+            handle = find(None, self.title)
+            assert handle, 'CI application window not found'
+            ImageGrab.grab(window=handle).save(
+                out / ('step_' + str(self.smoke_index + 1) + '.png')
+            )
+            self.root_box.export_to_png(
+                str(out / ('canvas_step_' + str(self.smoke_index + 1) + '.png'))
+            )
+        else:
+            Window.screenshot(
+                name=str(out / ('step_' + str(self.smoke_index + 1) + '.png'))
+            )
         if self.smoke_index == 3:
             Clock.schedule_once(lambda dt: self.stop(), 0.4)
             return

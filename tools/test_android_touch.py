@@ -5,7 +5,7 @@ import base64
 import zlib
 import os
 from pathlib import Path
-import re
+from android_ime_state import read_ime_state
 import subprocess
 import time
 
@@ -276,9 +276,8 @@ try:
     time.sleep(2)
     dump = adb('shell', 'dumpsys', 'input_method')
     (out / 'ime_open.txt').write_text(dump, encoding='utf-8', newline='\n')
-    assert re.search(r'(mInputShown|isInputViewShown|mIsInputViewShown)=true', dump), (
-        'IME closed after short tap'
-    )
+    open_ime_state = read_ime_state(dump)
+    assert open_ime_state['shown'] is True, 'IME closed after short tap'
     adb('shell', 'input', 'text', '2560')
     s = fresh()
     field = s['inputs']['current:ScaleDirect']
@@ -300,13 +299,8 @@ try:
     assert not s['inputs']['current:ScaleDirect']['focus']
     closed_dump = adb('shell', 'dumpsys', 'input_method')
     (out / 'ime_closed.txt').write_text(closed_dump, encoding='utf-8', newline='\n')
-    assert re.search(
-        r'(mInputShown|isInputViewShown|mIsInputViewShown)=false', closed_dump
-    ), 'No explicit closed IME state'
-    assert not re.search(
-        r'(mInputShown|isInputViewShown|mIsInputViewShown)=true', closed_dump
-    ), 'IME still shown after Done'
-
+    closed_ime_state = read_ime_state(closed_dump)
+    assert closed_ime_state['shown'] is False, 'IME still shown after Done'
     old = s['scroll_y']
     swipe(s['page_scroll'], s)
     s = fresh()
@@ -328,6 +322,7 @@ try:
         'focused_field_visible': None,
         'done_defocuses': True,
         'done_closes_ime': True,
+        'ime_state': {'open': open_ime_state, 'after_done': closed_ime_state},
         'keyboard_render_evidence': keyboard_render_evidence,
         'emulator_keyboard': keyboard,
         'page_swipe_scrolls': True,

@@ -244,6 +244,8 @@ def transformed_source(source, identifier):
                 identifier == 'M06_FIRST_BRANCH'
                 and name == 'verdicts'
                 and isinstance(node.value, ast.SetComp)
+                and isinstance(node.value.generators[0].iter, ast.Name)
+                and node.value.generators[0].iter.id == 'evaluated'
             ):
                 replacement = '{evaluated[0]["Verdict"]}'
             elif identifier == 'M07_FIRST_EXISTING_RANK' and name == 'rank':

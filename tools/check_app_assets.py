@@ -10,9 +10,9 @@ import sys
 sys.path.insert(0, str(root / 'src'))
 from nte_gear_optimizer_app import texts
 
-font = TTFont(root / 'src/nte_gear_optimizer_app/assets/Roboto-Regular.ttf')
+font = TTFont(root / 'src/nte_gear_optimizer_app/assets/DejaVuSans.ttf')
 cmap = font.getBestCmap()
-required = set('ÄÖÜäöüß±√')
+required = set('ÄÖÜäöüß±√↔Δ')
 assert all(ord(ch) in cmap for ch in required)
 strings = []
 for value in vars(texts).values():

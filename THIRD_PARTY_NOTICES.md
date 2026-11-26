@@ -37,3 +37,11 @@ The bundles carry exact file inventories. The build uses no release key,
 signing secret or GitHub secret. Android uses only an automatically generated
 debug signature; no keystore is distributed. Android device runtime is subject
 to the user's later phone test, not asserted by a successful APK build.
+
+## Phase 2A-1 UI font
+
+DejaVu Sans is bundled unchanged from the hash-pinned Matplotlib source.
+The complete Bitstream Vera/DejaVu license notices are included as
+third_party_licenses/DejaVu_LICENSE.txt and assets/LICENSE_DEJAVU.txt.
+It covers the required bidirectional arrow; the earlier Roboto file and its
+Apache2 license remain preserved, but the UI now selects DejaVu Sans.

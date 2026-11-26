@@ -27,7 +27,7 @@ from kivy.uix.textinput import TextInput
 from .viewmodel import ComparisonViewModel, numeric_hint
 from . import texts as T
 
-FONT = str(files('nte_gear_optimizer_app').joinpath('assets/Roboto-Regular.ttf'))
+FONT = str(files('nte_gear_optimizer_app').joinpath('assets/DejaVuSans.ttf'))
 LabelBase.register(name='NTEText', fn_regular=FONT, fn_bold=FONT)
 
 

@@ -49,6 +49,8 @@ def tap(rect, s):
 
 
 def swipe(rect, s):
+    # Software-rendered CI can coalesce a 280 ms gesture into one sample.
+    # Use an actual one-second adb gesture so down/move/up reach SDL frames.
     x, y, w, h = rect
     cx = int(s['frame'][0] + x + w / 2)
     top = int(s['frame'][1] + s['window'][1] - (y + h))
@@ -60,7 +62,7 @@ def swipe(rect, s):
         str(top + h * 0.80),
         str(cx),
         str(top + h * 0.25),
-        '280',
+        '1000',
     )
 
 
@@ -83,9 +85,9 @@ def open_list(label):
             tap(r, s)
             break
         if r[1] < 140:
-            adb('shell', 'input', 'swipe', '500', '1300', '500', '500', '280')
+            adb('shell', 'input', 'swipe', '500', '1300', '500', '500', '1000')
         else:
-            adb('shell', 'input', 'swipe', '500', '500', '500', '1300', '280')
+            adb('shell', 'input', 'swipe', '500', '500', '500', '1300', '1000')
         s = fresh()
     else:
         raise AssertionError('Selector not reachable: ' + label)
@@ -270,7 +272,7 @@ try:
     s = fresh()
     assert not s['inputs']['current:ScaleDirect']['focus']
     old = s['scroll_y']
-    adb('shell', 'input', 'swipe', '500', '1300', '500', '500', '280')
+    adb('shell', 'input', 'swipe', '500', '1300', '500', '500', '1000')
     s = fresh()
     assert abs(s['scroll_y'] - old) > 0.001, 'Page swipe did not scroll'
     devices = sorted({event['device'] for event in s.get('motions', [])})

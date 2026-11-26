@@ -8,6 +8,7 @@ if os.environ.get('GITHUB_ACTIONS') != 'true' or sys.platform != 'win32':
 root = Path(__file__).resolve().parents[1]
 # Kivy's analysis hook imports Window; do not open the CI host's GL-1.1 modal.
 os.environ.setdefault('KIVY_GL_BACKEND', 'angle_sdl2')
+os.environ.setdefault('KIVY_LOG_MODE', 'PYTHON')
 from kivy_deps import angle, sdl2
 
 binary_args = []

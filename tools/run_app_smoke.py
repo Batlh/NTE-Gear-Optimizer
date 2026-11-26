@@ -22,15 +22,22 @@ env = {
     'LIBGL_ALWAYS_SOFTWARE': '1',
 }
 command = [str(Path(args.exe).resolve())] if args.exe else [sys.executable, 'main.py']
-result = subprocess.run(
-    command,
-    env=env,
-    capture_output=True,
-    text=True,
-    encoding='utf-8',
-    errors='replace',
-    timeout=120,
-)
+try:
+    result = subprocess.run(
+        command,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding='utf-8',
+        errors='replace',
+        timeout=120,
+    )
+except subprocess.TimeoutExpired as error:
+    if sys.platform == 'win32':
+        from PIL import ImageGrab
+
+        ImageGrab.grab().save(out / 'timeout_desktop.png')
+    raise
 with (out / 'app_stdout.txt').open('x', encoding='utf-8', newline='\n') as target:
     target.write(result.stdout)
 with (out / 'app_stderr.txt').open('x', encoding='utf-8', newline='\n') as target:

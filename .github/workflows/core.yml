@@ -56,7 +56,8 @@ jobs:
         with:
           node-version: '24.22.3'
       - run: python tools/fetch_pyodide.py ${{ matrix.pyodide }} .tools/pyodide
-      - run: node tools/web_core.mjs .tools/pyodide ${{ matrix.pyodide }} > web-results.json
+      - run: python tools/run_native_parity.py .tools/native-core.json
+      - run: node tools/web_core.mjs .tools/pyodide ${{ matrix.pyodide }} .tools/native-core.json > web-results.json
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: always()
         with:

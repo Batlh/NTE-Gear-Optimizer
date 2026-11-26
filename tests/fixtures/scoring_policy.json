@@ -1,0 +1,11 @@
+{
+  "SourceWorkbookSHA256": "1D07965C6EC3C9652AAD8750B84EECD01E9EA168A8DF37C1E5A3386FDA2799AE",
+  "Source": "ScoringRules!A2:B6",
+  "Policy": {
+    "Build relevance share": "0.6",
+    "Roll quality share": "0.4",
+    "Keep threshold": "0.85",
+    "Review threshold": "0.65",
+    "Maximum score": "1"
+  }
+}

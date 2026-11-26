@@ -1,7 +1,15 @@
+import json
+from pathlib import Path
 import pytest
+from core_case_runner import run_case,check_case
 
-class TestKernpfad:
-    @pytest.mark.parametrize("case",['unrelated_object_error_preserves_build', 'missing_value_only_dependent_output', 'guide_baseline_panel_swap_path', 'damage_weight_not_dps_simulation', 'effective_profile', 'guide_target_basis_priority', 'lv80_projection', 'branch_override_boundary', 'context_channels', 'mode_channels', 'atomic_panel_base', 'console_validation'])
-    @pytest.mark.skip(reason="Phase 1B: Arbeitsweise Rev5 §13 and v029 list Kernpfad-Grenzen; comparison port not implemented")
-    def test_core_path(self,case):
-        raise NotImplementedError(case)
+FIXTURES=Path(__file__).parent/'fixtures'
+CASES=json.loads((FIXTURES/'core_cases.json').read_text(encoding='utf-8'))['Cases']
+
+@pytest.mark.parametrize('case',CASES,ids=lambda case:case['CaseID'])
+def test_core_path(case):
+    check_case(case,run_case(case))
+
+def test_frozen_all_67_and_twelve_old_skip_groups():
+    assert len(CASES)==67 and len({c['CaseID'] for c in CASES})==67
+    assert len({c['Group'] for c in CASES})==12

@@ -1,0 +1,2 @@
+RulesetID	OptimizerVersion	GamePatch	PredecessorRulesetID	Status	ProductionEligibility	Implementation	Scope	SourceID	RetrievedAtUTC	EvidenceClass	SourcePatch	DataStatus
+NTE_V029_PATCH_1_5_R1	0.29	1.5	NTE_V028_PATCH_1_4_R1	PROPOSED_PENDING_INDEPENDENT_REVIEW	NOT_GRANTED_BY_RESEARCH	NONE	Nur Datenerhebung und feldgenaue Quellen-/Patch-Differenzen	OFFICIAL_15	2026-11-25T21:34:14.655Z	OFFICIAL_PATCH_NOTES	1.5	PROPOSAL

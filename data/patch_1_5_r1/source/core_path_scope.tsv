@@ -1,0 +1,7 @@
+Dataset	CorePathPurpose	UnverifiedHandling	ImplementationChange	SourceID	RetrievedAtUTC	EvidenceClass
+characters.tsv;character_components.tsv	Charakterbasis beim Teilevergleich	Komponenten nicht als Panelwerte ausgeben.	NONE	LOCAL_RESEARCH	2026-11-25T22:17:12.638770+00:00	LOCAL_ANALYSIS
+arks.tsv;ark_mixing.tsv;ark_level_gaps.tsv	Passender Ark, Eigenanteil und bedingte Effekte	Unbekannte Levelwerte leer; kein erfundener Verlauf.	NONE	LOCAL_RESEARCH	2026-11-25T22:17:12.638770+00:00	LOCAL_ANALYSIS
+modules.tsv;cartridges.tsv;sets.tsv	Teil X gegen Teil Y, Stats und Setbedingungen	Alte Quellgültigkeit kenntlich, kein pauschaler Paketabbruch.	NONE	LOCAL_RESEARCH	2026-11-25T22:17:12.638770+00:00	LOCAL_ANALYSIS
+guide_targets.tsv;guide_arc_rankings.tsv;guide_priorities.tsv	Guide-Referenz und Anzeige	Keine neue Prioritäts-/Urteilsregel; unqualifizierte Guidewerte kennzeichnen.	NONE	LOCAL_RESEARCH	2026-11-25T22:17:12.638770+00:00	LOCAL_ANALYSIS
+mechanics.tsv;puka.tsv	Nur belegte gewichtungsrelevante Änderungen	Kampfbedingungen nicht als Panelwerte; fehlende Puka-Werte bleiben leer.	NONE	LOCAL_RESEARCH	2026-11-25T22:17:12.638770+00:00	LOCAL_ANALYSIS
+patch_changelist.tsv;source_comparison.tsv	Feldgenauer Quellenvergleich als Basis späterer SUPERSEDED-Hinweise	Nur Vorschlag/Daten; kein Import-/Migrationspfad umgesetzt.	NONE	LOCAL_RESEARCH	2026-11-25T22:17:12.638770+00:00	LOCAL_ANALYSIS

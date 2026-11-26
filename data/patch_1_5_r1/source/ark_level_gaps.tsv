@@ -1,0 +1,3 @@
+ArkID	LevelDomain	AscensionDomain	ObservedEndpoint	Missing	Interpolation	SourceID	RetrievedAtUTC	EvidenceClass	SourcePatch	DataStatus
+ARK_ECHOES_ON_HOLD	1..80	0..6	List maximum 570; secondary 24	Sieben Icy-Veins-Stützpunkte separat beobachtet; keine vollständige Levelreihe, Aufstiegsbasis ungenannt. Nicht automatisch als Ark-Kurve verwendbar.	FORBIDDEN_THIS_DATASET	PW_ARCS	2026-11-25T21:39:15.885Z	COMMUNITY_GUIDE_DATA	UNVERIFIED	UNVERIFIED
+ARK_DOTTED_HORIZON	1..80	0..6	List maximum 570; secondary 48	Keine belastbare vollständige Level-/Aufstiegsreihe für neue Arks; Neverness-Rechnerbasis ungeklärt.	FORBIDDEN_THIS_DATASET	PW_ARCS	2026-11-25T21:39:15.885Z	COMMUNITY_GUIDE_DATA	UNVERIFIED	PRE_RELEASE_SOURCE

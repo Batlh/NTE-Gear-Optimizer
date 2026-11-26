@@ -1,0 +1,2 @@
+ObjectID	ChangeIn15	TrainingValues	Scope	PanelEffect	Finding	EmptyReason	SourceID	RetrievedAtUTC	EvidenceClass	SourcePatch	DataStatus
+PUKA_TRAINING					In geprüften 1.5-Patchnotes keine ausdrückliche Trainingsänderung gefunden. Event-Namensänderung ist kein Trainingsnachweis.	Änderungsfreiheit, Werte, Wirkungsbereich und Panelwirkung nicht bestätigt; kein Altwert übernommen.	OFFICIAL_15	2026-11-25T21:34:14.655Z	OFFICIAL_PATCH_NOTES	1.5	UNVERIFIED

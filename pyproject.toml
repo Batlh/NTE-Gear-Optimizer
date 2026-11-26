@@ -19,3 +19,13 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py314"
+extend-exclude = ["*_REV_*", "*_INTERMEDIATE_*", ".tools", ".venv"]
+
+[tool.ruff.lint]
+select = ["E7", "E9", "F821", "F822", "F823", "F631", "F632", "F634"]
+
+[tool.ruff.format]
+quote-style = "single"

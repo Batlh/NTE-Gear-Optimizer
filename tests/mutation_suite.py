@@ -55,40 +55,92 @@ def probe_score(m):
     r=m.score_item(rolls,weights,policy,required_slots=4)
     assert r['Overall']=='0.46' and r['Recommendation']=='Recycle'
 
-# (module, ID, unique replacement pairs, semantic oracle)
-MUTATIONS=[
- ('models.profile_state','M02_BRANCH_LEAK', [('bound = override_branch_id == branch_id','bound = True')],probe_profile),
- ('validation.scoped','M03_AXES_TRANSPOSED', [('tuple(cell) for p in placements','tuple(reversed(cell)) for p in placements')],probe_layout),
- ('panels.resolution','M04_CONTEXT_BYPASS', [('if not valid:','if False:')],probe_direct),
- ('panels.resolution','M04_MODE_BOUNDARY_REMOVED', [('if stat_id in UNSUPPORTED_MODES:','if False:')],probe_modes),
- ('numbers','M05_FLOAT_DECIMAL', [('n=Decimal(value)','n=Decimal(float(value))')],probe_float),
- ('comparison.factors','M05_BREAK_DIVISOR', [("side,'Break',True)/300","side,'Break',True)/600")],probe_break),
- ('comparison.factors','M06_UNKNOWN_FALSE', [("if value=='UNKNOWN':return closed","if value=='UNKNOWN':return (closed[0],)")],probe_unknown),
- ('comparison.robust_branches','M06_EPSILON', [('if lo==hi:',"if abs(lo-hi)<=Decimal('0.000000000001'):")],probe_epsilon),
- ('comparison.robust_branches','M06_FIRST_BRANCH', [("verdicts={r['Verdict'] for r in evaluated}","verdicts={evaluated[0]['Verdict']}")],probe_branch),
- ('guide.reference','M07_FIRST_EXISTING_RANK', [("rank=min(r['DecisionRank'] for r in changed)","rank=min(r['DecisionRank'] for r in references if r['DecisionRank'] is not None)")],probe_rank),
- ('comparison.recommendation','M08_GLOBAL_GUIDE_GATE', [('    if layout_issue is not None:',"    if any(r['ReferenceUnavailableReason'] for r in refs):out.update(OutputStatus=MISSING,Verdict=None)\n    if layout_issue is not None:")],probe_gate),
- ('projection.lv80','M09_NULL_PERCENT_ZERO', [("if values.get('EquipmentPercent') is not None:",'if True:'),("number(values['EquipmentPercent'],'EquipmentPercent'","number(values.get('EquipmentPercent') or '0','EquipmentPercent'")],probe_projection),
- ('legacy.item_score','M10_SELECTED_STATS_DENOMINATOR', [('best=sum(sorted(all_weights.values(),reverse=True)[:required_slots])','best=selected')],probe_score),
+# Format-independent semantic mutations.
+MUTATIONS = [
+    ('models.profile_state', 'M02_BRANCH_LEAK', probe_profile),
+    ('validation.scoped', 'M03_AXES_TRANSPOSED', probe_layout),
+    ('panels.resolution', 'M04_CONTEXT_BYPASS', probe_direct),
+    ('panels.resolution', 'M04_MODE_BOUNDARY_REMOVED', probe_modes),
+    ('numbers', 'M05_FLOAT_DECIMAL', probe_float),
+    ('comparison.factors', 'M05_BREAK_DIVISOR', probe_break),
+    ('comparison.factors', 'M06_UNKNOWN_FALSE', probe_unknown),
+    ('comparison.robust_branches', 'M06_EPSILON', probe_epsilon),
+    ('comparison.robust_branches', 'M06_FIRST_BRANCH', probe_branch),
+    ('guide.reference', 'M07_FIRST_EXISTING_RANK', probe_rank),
+    ('comparison.recommendation', 'M08_GLOBAL_GUIDE_GATE', probe_gate),
+    ('projection.lv80', 'M09_NULL_PERCENT_ZERO', probe_projection),
+    ('legacy.item_score', 'M10_SELECTED_STATS_DENOMINATOR', probe_score),
 ]
+
+def transformed_source(source, identifier):
+    """AST mutations survive mechanical formatting; every target is unique."""
+    import ast
+    tree = ast.parse(source)
+    changes = 0
+    def expression(text): return ast.parse(text, mode='eval').body
+    class Mutator(ast.NodeTransformer):
+        def visit_Assign(self, node):
+            nonlocal changes
+            self.generic_visit(node)
+            name = node.targets[0].id if len(node.targets)==1 and isinstance(node.targets[0], ast.Name) else None
+            replacement = None
+            if identifier=='M02_BRANCH_LEAK' and name=='bound': replacement='True'
+            elif identifier=='M03_AXES_TRANSPOSED' and name=='cells': replacement='[tuple(reversed(cell)) for p in placements for cell in p["cells"]]'
+            elif identifier=='M05_FLOAT_DECIMAL' and name=='n': replacement='Decimal(float(value))'
+            elif identifier=='M06_FIRST_BRANCH' and name=='verdicts' and isinstance(node.value,ast.SetComp): replacement='{evaluated[0]["Verdict"]}'
+            elif identifier=='M07_FIRST_EXISTING_RANK' and name=='rank': replacement='min(r["DecisionRank"] for r in references if r["DecisionRank"] is not None)'
+            elif identifier=='M10_SELECTED_STATS_DENOMINATOR' and name=='best': replacement='selected'
+            if replacement is not None:
+                changes+=1;node.value=expression(replacement)
+            return node
+        def visit_If(self,node):
+            nonlocal changes
+            self.generic_visit(node)
+            test=ast.unparse(node.test)
+            if identifier=='M04_CONTEXT_BYPASS' and test=='not valid':
+                changes+=1;node.test=ast.Constant(False)
+            elif identifier=='M04_MODE_BOUNDARY_REMOVED' and test=='stat_id in UNSUPPORTED_MODES':
+                changes+=1;node.test=ast.Constant(False)
+            elif identifier=='M06_UNKNOWN_FALSE' and test=="value == 'UNKNOWN'":
+                changes+=1;node.body=[ast.Return(expression('(closed[0],)'))]
+            elif identifier=='M06_EPSILON' and test=='lo == hi':
+                changes+=1;node.test=expression("abs(lo-hi)<=Decimal('0.000000000001')")
+            elif identifier=='M08_GLOBAL_GUIDE_GATE' and test=='layout_issue is not None':
+                changes+=1
+                return ast.parse("if any(r['ReferenceUnavailableReason'] for r in refs): out.update(OutputStatus=MISSING,Verdict=None)").body+[node]
+            elif identifier=='M09_NULL_PERCENT_ZERO' and test=="values.get('EquipmentPercent') is not None":
+                changes+=1;node.test=ast.Constant(True)
+            return node
+        def visit_BinOp(self,node):
+            nonlocal changes
+            self.generic_visit(node)
+            if identifier=='M05_BREAK_DIVISOR' and isinstance(node.op,ast.Div) and isinstance(node.right,ast.Constant) and node.right.value==300:
+                changes+=1;node.right=ast.Constant(600)
+            return node
+        def visit_Call(self,node):
+            nonlocal changes
+            self.generic_visit(node)
+            if identifier=='M09_NULL_PERCENT_ZERO' and isinstance(node.func,ast.Name) and node.func.id=='number' and node.args and ast.unparse(node.args[0])=="values['EquipmentPercent']":
+                changes+=1;node.args[0]=expression("values.get('EquipmentPercent') or '0'")
+            return node
+    tree=Mutator().visit(tree)
+    assert changes==(2 if identifier=='M09_NULL_PERCENT_ZERO' else 1),(identifier,changes)
+    return ast.fix_missing_locations(tree)
 
 def run_mutations():
     report=[]
-    for suffix,identifier,changes,probe in MUTATIONS:
+    for suffix,identifier,probe in MUTATIONS:
         original=importlib.import_module('nte_gear_optimizer.'+suffix)
         probe(original)
         source=Path(original.__file__).read_text(encoding='utf-8')
-        for old,new in changes:
-            assert source.count(old)==1,(identifier,'ambiguous mutation')
-            source=source.replace(old,new)
+        tree=transformed_source(source,identifier)
         name='_nte_mutant_'+identifier
         module=types.ModuleType(name);module.__package__=original.__package__;module.Decimal=Decimal
         sys.modules[name]=module
         try:
-            exec(compile(source,original.__file__,'exec'),module.__dict__)
+            exec(compile(tree,original.__file__,'exec'),module.__dict__)
             try:probe(module)
             except AssertionError:report.append({'ID':identifier,'Result':'KILLED'})
             else:raise AssertionError(identifier+' survived')
-        finally:
-            del sys.modules[name]
+        finally: del sys.modules[name]
     return report

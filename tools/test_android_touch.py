@@ -136,12 +136,18 @@ def settled_option(expected):
             stable = 0
         previous = position
         if stable >= 2 and not modal['touch_active']:
-            assert visible(position, modal['scroll']), (
-                expected,
-                position,
-                modal['scroll'],
+            if visible(position, modal['scroll']):
+                return s, row
+            # Rebound can settle a few pixels before the edge. A real user
+            # can swipe again; do that rather than tapping a clipped option.
+            viewport = modal['scroll']
+            swipe(
+                viewport,
+                s,
+                reverse=position[1] + position[3] > viewport[1] + viewport[3],
             )
-            return s, row
+            stable = 0
+            previous = None
     raise AssertionError('Option geometry did not settle: ' + str(expected))
 
 

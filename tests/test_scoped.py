@@ -13,7 +13,7 @@ def test_layout_phase_order_and_axis():
 
 def test_progress_and_resonance_are_local():
     caps={0:20,1:30,2:40,3:50,4:60,5:70,6:80}
-    assert ark_progress(3,40,caps)==(None,'AVAILABLE')
+    assert ark_progress(3,40,caps) is None
     assert ark_progress(3,39,caps).code=='ERR_STATE_ARK_LEVEL_BELOW_ASCENSION_FLOOR'
     assert ark_progress(3,60,caps).outcome=='ARK_INSTANCE_NO_DEPENDENT_OUTPUT'
     assert ark_progress(None,50,caps).field=='ArkAscensionStage'

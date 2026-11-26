@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Issue:
-    code: str
+    code: str | None
     outcome: str
     field: str
     help: str
@@ -19,7 +19,7 @@ def ark_progress(stage, level, caps):
         return Issue('ERR_STATE_ARK_ASCENSION_INVALID', 'ARK_INSTANCE_NO_DEPENDENT_OUTPUT',
                      'ArkAscensionStage', 'Ark-Stufe fehlt oder liegt nicht zwischen 0 und 6')
     if stage not in caps or (stage and stage-1 not in caps):
-        return None, 'UNKNOWN'
+        return Issue(None,'ARK_INSTANCE_NO_DEPENDENT_OUTPUT','UnlocksMaxLevel','Freigeschaltete Ark-Levelgrenze fehlt')
     floor = 1 if stage == 0 else caps[stage-1]
     if not integer(level, floor, caps[stage]):
         # N5D cap error applies to above-cap; below-floor has no invented ID.
@@ -29,8 +29,8 @@ def ark_progress(stage, level, caps):
         if type(level) is int and level < floor:
             return Issue('ERR_STATE_ARK_LEVEL_BELOW_ASCENSION_FLOOR', 'ARK_INSTANCE_NO_DEPENDENT_OUTPUT',
                          'ArkLevel', 'Ark-Level liegt unter der Stufengrenze')
-        return None, 'UNKNOWN'
-    return None, 'AVAILABLE'
+        return Issue(None,'ARK_INSTANCE_NO_DEPENDENT_OUTPUT','ArkLevel','Ark-Level fehlt oder ist ungültig')
+    return None
 
 def resonance(awakening):
     if not integer(awakening, 0, 6):

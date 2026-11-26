@@ -6,7 +6,7 @@ from decimal import localcontext,ROUND_DOWN
 from core_case_runner import run_case,check_case
 from mutation_suite import run_mutations
 from nte_gear_optimizer.rules.opb10 import evaluate
-from nte_gear_optimizer.validation.scoped import validate_selected,character_level_valid,item_stats
+from nte_gear_optimizer.validation.scoped import validate_selected,character_level_valid,item_stats,ark_progress
 from nte_gear_optimizer.legacy.item_score import score_item
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -36,6 +36,9 @@ def run():
         kind='CARTRIDGE',level=5,stat_units={'STAT_ATK':'FLAT'},permitted_main_ids={'STAT_ATK'},
         limits={('MAIN',1,'STAT_ATK'):('0','100')})
     assert item_check=={'Status':'UNKNOWN','Field':'SubStats'}
+    assert ark_progress(3,40,{2:40,3:50}) is None
+    missing_caps=ark_progress(3,40,{})
+    assert missing_caps.code is None and missing_caps.outcome=='ARK_INSTANCE_NO_DEPENDENT_OUTPUT'
     return {'core_cases':results,'opb10_vectors':opb,'mutations':run_mutations(),'validation':report,'item_score':scoring,'item_validation':item_check}
 
 if __name__=='__main__':

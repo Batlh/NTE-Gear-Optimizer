@@ -26,3 +26,12 @@ def test_rulesets_and_mutant_global_gate():
     correct=compare(values(),P,targets=[row(ReferenceBasis=None)])
     # Incorrect global guide gate would erase this independent, known product.
     assert correct['OutputStatus']=='READY' and correct['ReferenceUnavailableReason']
+
+
+def test_valid_ark_progress_is_not_marked_unknown():
+    r=compare(values(),P,ark_issue=ark_progress(3,40,{2:40,3:50}))
+    assert 'ArkDependentOutputs' not in r and r['Verdict']=='BETTER'
+    issue=ark_progress(3,40,{})
+    assert issue.code is None and issue.field=='UnlocksMaxLevel'
+    r=compare(values(),P,ark_issue=issue)
+    assert r['ArkDependentOutputs']=='UNKNOWN' and r['Verdict']=='BETTER'

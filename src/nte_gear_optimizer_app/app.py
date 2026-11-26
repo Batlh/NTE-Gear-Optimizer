@@ -308,14 +308,17 @@ class ComparisonApp(App):
             summary = self.vm.compact_display()
             if self.vm.last_result['engine'].get('Verdict') is None:
                 leading, remaining = summary.split('\n\n' + T.CHANGED, 1)
-                self.body.add_widget(self.label(leading))
-                for step, _messages in self.vm.missing_groups():
+                self.body.add_widget(self.label(leading.split('\n\nWas fehlt', 1)[0]))
+                self.body.add_widget(self.label('Was fehlt', 21))
+                for step, messages in self.vm.missing_groups():
+                    self.body.add_widget(self.label(T.STEPS[step]))
                     button = self.button(
                         'Zu Schritt ' + str(step + 1),
                         lambda step=step: self.jump_to(step),
                     )
                     self.jump_buttons[step] = button
                     self.body.add_widget(button)
+                    self.body.add_widget(self.label('\n'.join(messages)))
                 # Place the jump immediately with the missing-input group;
                 # guide/hints must not push it several screens down.
                 remaining = T.CHANGED + remaining

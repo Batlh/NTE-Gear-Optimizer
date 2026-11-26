@@ -48,3 +48,15 @@ def test_every_catalog_entry_can_be_selected_without_id_changes():
     for ark in vm.catalog['Arks']:
         vm.choose_ark(ark['ArkID'])
         assert vm.ark_id == ark['ArkID']
+
+
+def test_part_only_percentage_never_invents_a_missing_current_value():
+    vm = ready_model()
+    vm.set_value('current', 'ScaleDirect', '')
+    vm.calculate()
+    line = next(
+        line
+        for line in vm.clarification_display().splitlines()
+        if '(%) auf dem Teil:' in line
+    )
+    assert line == 'ANG (%) auf dem Teil: Teile 0 → 0'

@@ -658,14 +658,21 @@ class ComparisonViewModel:
         for field in self.fields() + (
             ['ScalingPercentPP'] if 'ScaleDirect' in self.fields() else []
         ):
-            lines.append(
-                T.field_label(field, r['input_scaling'])
-                + ': aktuell '
-                + value(r['current'], self.current, field)
-                + ' · Teile '
+            parts = (
+                'Teile '
                 + value(r['x'], self.item_x, field)
                 + ' → '
                 + value(r['y'], self.item_y, field)
+            )
+            # Percentage-on-part has no current-total input. Do not invent a
+            # missing current value for a field that exists only on the parts.
+            current = (
+                ''
+                if field == 'ScalingPercentPP'
+                else 'aktuell ' + value(r['current'], self.current, field) + ' · '
+            )
+            lines.append(
+                T.field_label(field, r['input_scaling']) + ': ' + current + parts
             )
         return '\n'.join(lines)
 

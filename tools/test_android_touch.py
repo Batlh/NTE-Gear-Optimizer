@@ -142,18 +142,24 @@ def choose(label, identifier=None, last=False):
 evidence = []
 try:
     apk = next(Path('emulator_apk/bin').glob('*.apk'))
-    adb('install', '-r', str(apk))
-    # User-supplied icon as actually installed in the launcher, not a mockup.
-    adb('shell', 'input', 'keyevent', '3')
-    time.sleep(2)
-    adb('shell', 'input', 'swipe', '540', '1700', '540', '400', '400')
-    time.sleep(2)
-    adb('shell', 'uiautomator', 'dump', '/sdcard/nte_launcher.xml')
-    launcher = adb('shell', 'cat', '/sdcard/nte_launcher.xml')
-    (out / 'launcher.xml').write_text(launcher, encoding='utf-8', newline='\n')
-    screenshot('launcher_app_icon')
-    assert 'NTE Gear' in launcher, 'Installed app icon not found in launcher screenshot'
+    import zipfile, tarfile, io, hashlib
 
+    with zipfile.ZipFile(apk) as archive:
+        with tarfile.open(
+            fileobj=io.BytesIO(archive.read('assets/private.tar')), mode='r:*'
+        ) as package:
+            metadata = json.load(package.extractfile('BUILD_METADATA.json'))
+    assert metadata['commit'] == os.environ.get(
+        'NTE_EXPECTED_APP_COMMIT', os.environ['GITHUB_SHA']
+    )
+    assert metadata['emulator_test_only'] is True
+    for relative, digest in metadata['files'].items():
+        if relative.startswith(('nte_gear_optimizer/', 'nte_gear_optimizer_app/')):
+            assert (
+                hashlib.sha256((Path('src') / relative).read_bytes()).hexdigest()
+                == digest
+            ), relative
+    adb('install', '-r', str(apk))
     adb('shell', 'ime', 'enable', 'com.android.inputmethod.latin/.LatinIME')
     adb('shell', 'ime', 'set', 'com.android.inputmethod.latin/.LatinIME')
     adb('logcat', '-c')
@@ -231,6 +237,29 @@ try:
         'page_swipe_scrolls': True,
         'samsung_keyboard': 'UNVERIFIED: emulator uses AOSP keyboard',
     }
+    (out / 'core_touch_result.json').write_text(
+        json.dumps(report, ensure_ascii=False, indent=2) + '\n',
+        encoding='utf-8',
+        newline='\n',
+    )
+    # Check the ancillary launcher image AFTER the actual core touch tests.
+    # Reload its first-boot icon database; never change application state to
+    # manufacture an icon or bypass the real package manager.
+    adb('shell', 'am', 'force-stop', 'com.google.android.apps.nexuslauncher')
+    adb('shell', 'input', 'keyevent', '3')
+    time.sleep(3)
+    adb('shell', 'input', 'swipe', '540', '1700', '540', '400', '400')
+    for _ in range(8):
+        time.sleep(2)
+        adb('shell', 'uiautomator', 'dump', '/sdcard/nte_launcher.xml')
+        launcher = adb('shell', 'cat', '/sdcard/nte_launcher.xml')
+        if 'NTE Gear' in launcher:
+            break
+        adb('shell', 'input', 'swipe', '540', '1500', '540', '600', '350')
+    (out / 'launcher.xml').write_text(launcher, encoding='utf-8', newline='\n')
+    screenshot('launcher_app_icon')
+    assert 'NTE Gear' in launcher, 'Installed app icon not found after launcher reload'
+    report['launcher_icon'] = True
     (out / 'result.json').write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + '\n',
         encoding='utf-8',

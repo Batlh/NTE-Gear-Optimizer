@@ -21,6 +21,10 @@ if sys.platform == 'win32':
     os.environ.setdefault('KIVY_GL_BACKEND', 'angle_sdl2')
 
 try:
+    import site
+    from nte_gear_optimizer_app.runtime import configure_frozen_paths
+
+    configure_frozen_paths(sys, site)
     from nte_gear_optimizer_app.app import run
 
     if __name__ == '__main__':

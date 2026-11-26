@@ -15,7 +15,7 @@ def ignored(directory, names):
         if '_REV_' in n
         or '_INTERMEDIATE_' in n
         or n == '__pycache__'
-        or n.endswith('.pyc')
+        or n.endswith(('.pyc', '.ico', '.svg'))
     ]
 
 

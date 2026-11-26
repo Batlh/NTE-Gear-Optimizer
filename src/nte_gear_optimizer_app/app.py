@@ -301,8 +301,10 @@ class ComparisonApp(App):
         elif self.vm.step in (1, 2):
             self.values_screen(parts=self.vm.step == 2)
         else:
-            self.body.add_widget(self.label(self.vm.compact_display()))
+            summary = self.vm.compact_display()
             if self.vm.last_result['engine'].get('Verdict') is None:
+                leading, remaining = summary.split('\n\n' + T.CHANGED, 1)
+                self.body.add_widget(self.label(leading))
                 for step, _messages in self.vm.missing_groups():
                     button = self.button(
                         'Zu Schritt ' + str(step + 1),
@@ -310,6 +312,16 @@ class ComparisonApp(App):
                     )
                     self.jump_buttons[step] = button
                     self.body.add_widget(button)
+                # Place the jump immediately with the missing-input group;
+                # guide/hints must not push it several screens down.
+                remaining = T.CHANGED + remaining
+                markers = [
+                    remaining.index(marker)
+                    for marker in ('\n\nGuide\n', '\n\n' + T.HINTS + '\n')
+                    if marker in remaining
+                ]
+                split = min(markers) if markers else len(remaining)
+                self.body.add_widget(self.label(remaining[:split]))
                 self.body.add_widget(
                     self.button(
                         'Alle Werte zur Klärung'
@@ -320,6 +332,9 @@ class ComparisonApp(App):
                 )
                 if self.clarification_expanded:
                     self.body.add_widget(self.label(self.vm.clarification_display()))
+                self.body.add_widget(self.label(remaining[split:]))
+            else:
+                self.body.add_widget(self.label(summary))
             self.details_button = self.button(
                 T.DETAILS_CLOSE if self.details_expanded else T.DETAILS_OPEN,
                 self.toggle_details,

@@ -22,7 +22,8 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.scrollview import ScrollView
-from kivy.uix.spinner import Spinner, SpinnerOption
+from kivy.uix.modalview import ModalView
+from kivy.graphics import Color, Rectangle
 from kivy.uix.textinput import TextInput
 from .viewmodel import ComparisonViewModel, numeric_hint
 from . import texts as T
@@ -31,16 +32,11 @@ FONT = str(files('nte_gear_optimizer_app').joinpath('assets/DejaVuSans.ttf'))
 LabelBase.register(name='NTEText', fn_regular=FONT, fn_bold=FONT)
 
 
-class TouchSpinnerOption(SpinnerOption):
-    def __init__(self, **kwargs):
-        kwargs.setdefault('height', dp(52))
-        kwargs.setdefault('font_name', 'NTEText')
-        kwargs.setdefault('font_size', sp(17))
-        super().__init__(**kwargs)
-
-
 class ComparisonApp(App):
     title = T.TITLE
+    icon = str(
+        files('nte_gear_optimizer_app').joinpath('assets/icons/kiwi_icon_512.png')
+    )
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -50,8 +46,10 @@ class ComparisonApp(App):
         self.zero_buttons = []
         self.smoke_index = 0
         self.details_expanded = False
+        self.clarification_expanded = False
         self.show_all_values = False
         self.input_hints = {}
+        self.active_selector = None
 
     def label(self, text, size=17):
         label = Label(
@@ -98,19 +96,63 @@ class ComparisonApp(App):
         displayed = next(
             (name for name, value in mapping.items() if value == current), T.NO_CHOICE
         )
-        widget = Spinner(
-            text=displayed,
-            values=tuple(mapping),
-            option_cls=TouchSpinnerOption,
-            font_name='NTEText',
-            font_size=sp(17),
-            size_hint_y=None,
-            height=dp(52),
+        # A bounded, opaque modal for EVERY selector: no nested dropdown
+        # escaping behind the Android navigation bar or outer ScrollView.
+        entries = sorted(
+            mapping.items(), key=lambda pair: (pair[1] is not None, pair[0].casefold())
         )
-        widget.bind(
-            text=lambda _, text: callback(mapping[text]) if text in mapping else None
+        self.selector_specs[label] = (entries, current)
+        widget = self.button(
+            displayed, lambda: self.open_selector(label, entries, callback)
         )
+        self.selector_widgets[label] = widget
         self.body.add_widget(widget)
+
+    def open_selector(self, title, entries, callback):
+        self.dismiss_keyboard()
+        popup = ModalView(
+            size_hint=(0.96, 0.90),
+            auto_dismiss=False,
+            background='',
+            background_color=(0.08, 0.11, 0.15, 1),
+        )
+        layout = BoxLayout(orientation='vertical', padding=dp(12), spacing=dp(8))
+        with layout.canvas.before:
+            Color(0.08, 0.11, 0.15, 1)
+            background = Rectangle(pos=layout.pos, size=layout.size)
+        layout.bind(
+            pos=lambda w, v: setattr(background, 'pos', v),
+            size=lambda w, v: setattr(background, 'size', v),
+        )
+        layout.add_widget(self.label(title, 21))
+        scroll = ScrollView(do_scroll_x=False)
+        rows = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(4))
+        rows.bind(minimum_height=rows.setter('height'))
+        self.selector_rows = []
+
+        def select(value):
+            popup.dismiss()
+            self.active_selector = None
+            callback(value)
+
+        for name, value in entries:
+            button = self.button(name, lambda value=value: select(value))
+            rows.add_widget(button)
+            self.selector_rows.append((value, name, button))
+        scroll.add_widget(rows)
+        layout.add_widget(scroll)
+        cancel = self.button(
+            'Abbrechen',
+            lambda: (popup.dismiss(), setattr(self, 'active_selector', None)),
+        )
+        layout.add_widget(cancel)
+        popup.add_widget(layout)
+        self.active_selector = (title, popup, scroll, cancel)
+        popup.open()
+
+    def dismiss_keyboard(self):
+        for widget in self.inputs.values():
+            widget.focus = False
 
     def text_input(self, group, field, value):
         widget = TextInput(
@@ -121,6 +163,21 @@ class ComparisonApp(App):
             size_hint_y=None,
             height=dp(50),
             write_tab=False,
+            # ScrollView can forward a short touch only after touch-up. Do not
+            # let the global touch-up focus handler immediately close its IME.
+            # Selection of another field and Done/navigation still dismiss it.
+            unfocus_on_touch=False,
+            input_type='text',
+        )
+        widget.bind(on_text_validate=lambda field: setattr(field, 'focus', False))
+        widget.bind(
+            focus=lambda field, focused: (
+                Clock.schedule_once(
+                    lambda dt: self.scroll.scroll_to(field, padding=dp(24)), 0.25
+                )
+                if focused
+                else None
+            )
         )
         if group == 'white':
             widget.bind(
@@ -175,6 +232,7 @@ class ComparisonApp(App):
             self.white_box.disabled = not needed
 
     def build(self):
+        Window.softinput_mode = 'below_target'
         Window.clearcolor = (0.065, 0.085, 0.11, 1)
         self.root_box = BoxLayout(orientation='vertical', padding=dp(16), spacing=dp(8))
         self.root_box.add_widget(self.label(T.LOGO + '   ' + T.TITLE, 23))
@@ -205,10 +263,12 @@ class ComparisonApp(App):
         return self.root_box
 
     def go_back(self):
+        self.dismiss_keyboard()
         self.vm.back()
         self.render()
 
     def go_next(self):
+        self.dismiss_keyboard()
         self.vm.next()
         if self.vm.step == 3:
             self.vm.calculate()
@@ -223,6 +283,10 @@ class ComparisonApp(App):
         self.render()
 
     def render(self):
+        self.dismiss_keyboard()
+        self.selector_specs = {}
+        self.selector_widgets = {}
+        self.jump_buttons = {}
         self.body.clear_widgets()
         self.inputs = {}
         self.input_hints = {}
@@ -238,6 +302,24 @@ class ComparisonApp(App):
             self.values_screen(parts=self.vm.step == 2)
         else:
             self.body.add_widget(self.label(self.vm.compact_display()))
+            if self.vm.last_result['engine'].get('Verdict') is None:
+                for step, _messages in self.vm.missing_groups():
+                    button = self.button(
+                        'Zu Schritt ' + str(step + 1),
+                        lambda step=step: self.jump_to(step),
+                    )
+                    self.jump_buttons[step] = button
+                    self.body.add_widget(button)
+                self.body.add_widget(
+                    self.button(
+                        'Alle Werte zur Klärung'
+                        if not self.clarification_expanded
+                        else 'Klärungswerte einklappen',
+                        self.toggle_clarification,
+                    )
+                )
+                if self.clarification_expanded:
+                    self.body.add_widget(self.label(self.vm.clarification_display()))
             self.details_button = self.button(
                 T.DETAILS_CLOSE if self.details_expanded else T.DETAILS_OPEN,
                 self.toggle_details,
@@ -252,6 +334,14 @@ class ComparisonApp(App):
                 self.body.add_widget(
                     self.label(self.vm.details_display(self.show_all_values))
                 )
+
+    def jump_to(self, step):
+        self.vm.jump_to(step)
+        self.render()
+
+    def toggle_clarification(self):
+        self.clarification_expanded = not self.clarification_expanded
+        self.render()
 
     def toggle_details(self):
         self.details_expanded = not self.details_expanded
@@ -428,6 +518,12 @@ class ComparisonApp(App):
             self.body.add_widget(self.label(T.UI['parts_hint']))
 
     def on_start(self):
+        from kivy.utils import platform
+
+        if platform == 'android':
+            from .android_ci import install_probe
+
+            install_probe(self)
         if os.environ.get('NTE_TEST_MODE') == 'smoke':
             Clock.schedule_once(self.smoke, 0.8)
 
@@ -541,6 +637,37 @@ class ComparisonApp(App):
             'x', encoding='utf-8', newline='\n'
         ) as stream:
             json.dump(report, stream, ensure_ascii=False, indent=2)
+        self.vm.set_value('current', 'UniversalPP', '')
+        self.vm.step = 3
+        self.vm.calculate()
+        self.render()
+        assert 'Was fehlt' in self.vm.compact_display() and 1 in self.jump_buttons
+        Clock.schedule_once(lambda dt: self.capture_indeterminate(out), 0.7)
+
+    def capture_indeterminate(self, out):
+        self.capture_view(out, 'indeterminate')
+        before = (dict(self.vm.current), dict(self.vm.item_x), dict(self.vm.item_y))
+        decision = dict(self.vm.last_result['engine'])
+        self.toggle_clarification()
+        assert self.vm.last_result['engine'] == decision
+        self.jump_buttons[1].dispatch('on_release')
+        assert self.vm.step == 1 and before == (
+            self.vm.current,
+            self.vm.item_x,
+            self.vm.item_y,
+        )
+        with (out / 'indeterminate_checks.json').open(
+            'x', encoding='utf-8', newline='\n'
+        ) as stream:
+            json.dump(
+                {
+                    'missing_first': True,
+                    'jump_correct': True,
+                    'values_preserved': True,
+                    'toggle_no_verdict_change': True,
+                },
+                stream,
+            )
         self.stop()
 
 

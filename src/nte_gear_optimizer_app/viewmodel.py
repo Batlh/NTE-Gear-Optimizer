@@ -27,9 +27,13 @@ class InputFormatError(ValueUnavailable):
 
 def numeric_hint(value):
     try:
-        normalize(value)
+        parsed = normalize(value)
     except ValueUnavailable as error:
         return getattr(error, 'hint', T.MESSAGES['invalid'])
+    if parsed is not None and (
+        re.search(r',\d{3}$', value.strip()) or ' ' in value.strip()
+    ):
+        return 'übernommen als ' + parsed.replace('.', ',')
     return ''
 
 
@@ -38,7 +42,13 @@ def normalize(value):
         return None
     if not isinstance(value, str):
         raise ValueUnavailable('Eingabe', True)
-    value = ''.join(value.split())
+    value = value.strip()
+    if any(c.isspace() for c in value):
+        if not re.fullmatch(r'[+-]?[0-9]{1,3}( [0-9]{3})+(,[0-9]+)?', value):
+            raise InputFormatError(
+                'Bitte Leerzeichen nur in Dreiergruppen verwenden, z. B. 2 560 – sonst ohne Leerzeichen eingeben.'
+            )
+        value = value.replace(' ', '')
     if '.' in value:
         if re.fullmatch(r'[+-]?[0-9]{1,3}(?:\.[0-9]{3})+', value.split(',')[0]):
             raise InputFormatError(T.THOUSANDS_HINT)
@@ -557,6 +567,108 @@ class ComparisonViewModel:
         full = self._full_display(show_all=show_all or undecided)
         return full[full.index('\n' + T.CURRENT + '\n') + 1 :]
 
+    def jump_to(self, step):
+        if step not in (0, 1, 2):
+            raise ValueError('Unbekannter Eingabeschritt')
+        self.step = step
+
+    @staticmethod
+    def localized_diagnostic(message):
+        for field, label in sorted(
+            T.FIELD_LABELS.items(), key=lambda pair: -len(pair[0])
+        ):
+            message = (
+                message.replace('Before' + field, label + ' aktuell')
+                .replace('After' + field, label + ' nach Tausch')
+                .replace(field, label)
+            )
+        return message.replace('Teil X', T.PART_X).replace('Teil Y', T.PART_Y)
+
+    def missing_groups(self):
+        """Route only actual core diagnostics/local parse errors to their inputs.
+
+        Missing resolved After values may come from current OR either part;
+        route to the raw input that is absent, not blindly to the parts page.
+        Branch applicability and branch-selection diagnoses belong to selection.
+        """
+        r = self.last_result or self.calculate()
+        if r['engine'].get('Verdict') is not None:
+            return []
+        groups = {0: [], 1: [], 2: []}
+        selection = (
+            'ProfileType',
+            'ScalingStat',
+            'CritEligible',
+            'BreakEligible',
+            'CycleType',
+            'BuildProfileID',
+            'SelectedBranchID',
+        )
+        for message in r['engine'].get('Diagnostics', []):
+            targets = set()
+            if (
+                any(key in message for key in selection)
+                or message == T.MESSAGES['select_branch_scale']
+            ):
+                targets.add(0)
+            for field in T.FIELD_LABELS:
+                if field not in message or field in selection:
+                    continue
+                if (
+                    'Teil X:' in message
+                    or 'Teil Y:' in message
+                    or field == 'WhitePanelBase'
+                ):
+                    targets.add(2)
+                elif 'Aktuell:' in message or 'Before' + field in message:
+                    targets.add(1)
+                else:
+                    for group, step in [('current', 1), ('x', 2), ('y', 2)]:
+                        if r[group].get(field) is None:
+                            targets.add(step)
+            if not targets:
+                # Non-field core causes (branch disagreement/affine limits)
+                # stay explicit and direct the user to branch selection.
+                targets.add(0)
+            localized = self.localized_diagnostic(message)
+            for step in targets:
+                if localized not in groups[step]:
+                    groups[step].append(localized)
+        for label, hint in r['errors'].items():
+            step = (
+                2
+                if label.startswith((T.PART_X, T.PART_Y))
+                or label == T.FIELD_LABELS['WhitePanelBase']
+                else 1
+            )
+            groups[step].append(label + ': ' + hint)
+        return [(step, groups[step]) for step in groups if groups[step]]
+
+    def clarification_display(self):
+        r = self.last_result or self.calculate()
+
+        def value(group, raws, field):
+            parsed = group.get(field)
+            if parsed is not None:
+                return parsed.replace('.', ',')
+            raw = raws.get(field)
+            return raw + T.UNPARSED if raw else 'fehlt'
+
+        lines = [T.EXPLANATION_VALUES]
+        for field in self.fields() + (
+            ['ScalingPercentPP'] if 'ScaleDirect' in self.fields() else []
+        ):
+            lines.append(
+                T.field_label(field, r['input_scaling'])
+                + ': aktuell '
+                + value(r['current'], self.current, field)
+                + ' · Teile '
+                + value(r['x'], self.item_x, field)
+                + ' → '
+                + value(r['y'], self.item_y, field)
+            )
+        return '\n'.join(lines)
+
     def compact_display(self):
         r = self.last_result or self.calculate()
         engine = r['engine']
@@ -576,6 +688,17 @@ class ComparisonViewModel:
             )
         elif engine.get('Verdict') is not None:
             lines.append(T.NO_SINGLE_RATIO)
+        if engine.get('Verdict') is None:
+            lines += [
+                T.STATUS_HINTS.get(
+                    engine.get('OutputStatus'), T.MESSAGES['status_unknown']
+                ),
+                '',
+                'Was fehlt',
+            ]
+            for step, messages in self.missing_groups():
+                lines.append(T.STEPS[step])
+                lines.extend(messages)
         lines += ['', T.CHANGED]
         count = 0
         for key, value in engine.get('Deltas', {}).items():
@@ -614,34 +737,6 @@ class ComparisonViewModel:
                 count += 1
         if not count:
             lines.append(T.NO_CHANGES)
-        if engine.get('Verdict') is None:
-            lines += ['', T.EXPLANATION_VALUES]
-            for key in self.fields():
-                label = T.field_label(key, scale)
-                raw = self.current.get(key)
-                before = r['current'].get(key)
-                if before is None and raw:
-                    before = raw + T.UNPARSED
-                elif before is not None:
-                    before = before.replace('.', ',')
-                after = r['resolved'].get('After' + key)
-                lines.append(
-                    label
-                    + ': '
-                    + (before or T.NO_CHOICE)
-                    + ' → '
-                    + (after or T.NO_CHOICE).replace('.', ',')
-                )
-                for heading, group, raws in (
-                    (T.PART_X, r['x'], self.item_x),
-                    (T.PART_Y, r['y'], self.item_y),
-                ):
-                    value = group.get(key)
-                    if value is None and raws.get(key):
-                        value = raws[key] + T.UNPARSED
-                    elif value is not None:
-                        value = value.replace('.', ',')
-                    lines.append(heading + ': ' + (value or T.NO_CHOICE))
         if engine.get('OutputStatus') != 'READY':
             lines.append(
                 T.STATUS_HINTS.get(
@@ -653,6 +748,7 @@ class ComparisonViewModel:
                 T.MESSAGES['proxy'] + engine['BaseProxyRatio'].replace('.', ',')
             )
         if r['guide']:
+            lines += ['', 'Guide']
             lines.append(
                 T.GUIDE_WARNING
                 if any(

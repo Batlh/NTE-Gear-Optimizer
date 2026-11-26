@@ -6,7 +6,9 @@ source.dir = build/android_source
 source.include_exts = py,json,ttf,txt,md,png
 version = 0.29.0
 requirements = python3==3.14.2,hostpython3==3.14.2,kivy==2.3.2
-icon.filename = src/nte_gear_optimizer_app/assets/placeholder.png
+icon.filename = src/nte_gear_optimizer_app/assets/icons/kiwi_icon_512.png
+icon.adaptive_foreground.filename = src/nte_gear_optimizer_app/assets/icons/kiwi_adaptive_foreground_432.png
+icon.adaptive_background.filename = src/nte_gear_optimizer_app/assets/icons/kiwi_adaptive_background_432.png
 orientation = portrait
 fullscreen = 0
 android.permissions =

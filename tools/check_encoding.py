@@ -66,7 +66,7 @@ def scan(root):
     return {
         str(name): problem
         for name in file_list(root)
-        if name.suffix.lower() not in {'.ttf', '.png', '.zip', '.apk'}
+        if name.suffix.lower() not in {'.ttf', '.png', '.zip', '.apk', '.ico'}
         and (problem := errors((root / name).read_bytes()))
     }
 

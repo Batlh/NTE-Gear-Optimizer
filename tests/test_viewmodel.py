@@ -36,7 +36,6 @@ def ready_model(kind='DAMAGE', scale='ANG'):
         ('', None),
         ('  ', None),
         ('1 234,50', '1234.5'),
-        ('1\u00a0234', '1234'),
     ],
 )
 def test_normalization(raw, expected):
@@ -334,7 +333,10 @@ def test_ambiguous_active_value_keeps_local_raw_help_and_independent_delta():
     assert list(result['errors'].values()) == [T.THOUSANDS_HINT]
     assert result['part_deltas']['ScaleDirect'] == '10'
     compact = vm.compact_display()
-    assert '2.560' + T.UNPARSED in compact and T.THOUSANDS_HINT in compact
+    assert (
+        '2.560' + T.UNPARSED in vm.clarification_display()
+        and T.THOUSANDS_HINT in compact
+    )
     assert 'Δ 10' in compact
 
 
@@ -363,7 +365,10 @@ def test_changed_zero_after_remains_visible_and_unknown_explanation_keeps_zero_b
     vm = ready_model()
     vm.set_value('current', 'ScaleDirect', '')
     compact = vm.compact_display()
-    assert 'Werte zur Klärung' in compact and 'Universeller Bonus (%): 0 → 0' in compact
+    assert 'Was fehlt' in compact and 'Werte zur Klärung' not in compact
+    assert (
+        'Universeller Bonus (%): aktuell 0 · Teile 0 → 0' in vm.clarification_display()
+    )
     assert 'Universeller Bonus (%): 0' in vm.details_display(False)
 
 

@@ -54,6 +54,13 @@ assert report['result']['engine']['Deltas']['ScaleDirect'] == '10'
 assert report['frozen'] == bool(args.exe)
 followup = json.loads((out / 'followup_checks.json').read_text(encoding='utf-8'))
 assert all(value == 'PASS' or value is True for value in followup.values()), followup
+assert json.loads((out / 'indeterminate_checks.json').read_text(encoding='utf-8')) == {
+    'missing_first': True,
+    'jump_correct': True,
+    'values_preserved': True,
+    'toggle_no_verdict_change': True,
+}
+assert list(out.glob('indeterminate*.png'))
 assert (
     len(list(out.glob('details_expanded*.png'))) == 1
     and len(list(out.glob('input_help*.png'))) == 1
@@ -66,6 +73,7 @@ for screenshot in (
     screenshots
     + list(out.glob('details_expanded*.png'))
     + list(out.glob('input_help*.png'))
+    + list(out.glob('indeterminate*.png'))
 ):
     with Image.open(screenshot) as image:
         # Exclude window chrome: a title bar over a black client is not proof.

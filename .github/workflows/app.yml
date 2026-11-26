@@ -47,13 +47,19 @@ jobs:
             dist/NTE_Gear_Optimizer_v029_Phase2A_Windows_Debug.zip
             build/windows_smoke
   android-debug:
+    if: github.event_name == 'push' && github.repository == 'Batlh/NTE-Gear-Optimizer' && github.ref == 'refs/heads/v029-phase2a'
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, x86_64]
     concurrency:
-      group: phase2a-android-native
+      group: phase2a-android-native-${{ matrix.abi }}
       cancel-in-progress: false
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
       JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+      NTE_ANDROID_ABI: ${{ matrix.abi }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
@@ -65,20 +71,62 @@ jobs:
           path: |
             ~/.buildozer/android/platform/android-sdk
             ~/.buildozer/android/platform/android-ndk-r28c
-            .buildozer/android/platform/build-arm64-v8a/other_builds
-            .buildozer/android/platform/build-arm64-v8a/packages
-            .buildozer/android/platform/build-arm64-v8a/python-installs
-          key: android-py3142-kivy232-9562d1b4f306-${{ hashFiles('build_recipes/**', 'requirements-android.txt', 'buildozer.spec') }}
+            .buildozer/android/platform/build-${{ matrix.abi }}/other_builds
+            .buildozer/android/platform/build-${{ matrix.abi }}/packages
+            .buildozer/android/platform/build-${{ matrix.abi }}/python-installs
+          key: android-${{ matrix.abi }}-py3142-kivy232-9562d1b4f306-${{ hashFiles('build_recipes/**', 'requirements-android.txt', 'buildozer.spec') }}
       - run: python -m pip install -r requirements-android.txt
+      - run: python tools/configure_android_ci.py
       - run: python tools/stage_android.py
       - run: buildozer -v android debug
+      - name: Sign fixed-key user test APK
+        if: matrix.abi == 'arm64-v8a'
+        env:
+          SIGNING_STORE_B64: ${{ secrets.SIGNING_STORE_B64 }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: python tools/sign_android.py
       - name: Record exact APK hashes and Python requirements
         run: python tools/record_android.py
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: always()
         with:
-          name: android-debug-apk
+          name: ${{ matrix.abi == 'arm64-v8a' && 'android-debug-apk' || 'android-emulator-only-apk' }}
           path: |
-            bin/*.apk
+            bin/${{ matrix.abi == 'arm64-v8a' && '*-signed.apk' || '*.apk' }}
+            build/signature.json
             build/android_artifact.json
             .buildozer/android/platform/build-*/dists/*/build/outputs/logs/manifest-merger-debug-report.txt
+  android-touch-emulator:
+    needs: android-debug
+    if: github.event_name == 'push' && github.repository == 'Batlh/NTE-Gear-Optimizer'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.14.10'
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
+        with:
+          name: android-emulator-only-apk
+          path: emulator_apk
+      - name: Enable KVM on isolated CI runner
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 33
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          force-avd-creation: true
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: python tools/test_android_touch.py
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        if: always()
+        with:
+          name: android-touch-evidence
+          path: build/emulator_touch

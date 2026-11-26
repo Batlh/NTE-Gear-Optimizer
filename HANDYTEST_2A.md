@@ -55,3 +55,22 @@ macht alle gespeicherten Eingaben sichtbar. Bei einem unbestimmten Ergebnis
 bleiben relevante Nullwerte, fehlende Angaben und Eingabehilfen bereits in der
 Zusammenfassung sichtbar. Ein-/Ausklappen darf das Urteil nicht ändern.
 Die normale App zeigt keine Schrift-Testzeile.
+
+## Ergänzung 2A-2
+
+Die alte Debug-App einmal deinstallieren: Die neue Test-APK verwendet den
+festen Projektschlüssel. Künftige Test-APKs sollen sich darüber installieren
+lassen. Keine gespeicherten Nutzerdaten vorhanden; Eingaben gelten je Sitzung.
+
+- Kurzer Tipp ins Feld: Tastatur bleibt offen, Feld sichtbar über der Tastatur.
+- Komma erreichbar; „Fertig“ schließt die Tastatur; Wischen scrollt weiterhin.
+- Jede Auswahlliste öffnen, nach unten wischen und letzten Eintrag wählen.
+  Alle Einträge müssen erreichbar sein, die Liste bleibt im Bildschirm.
+  „Abbrechen“ behält die bisherige Wahl. Charaktere sind nach Namen sortiert.
+- Absichtlich in Schritt 2 „kein Bonus (0)“ weglassen: „Was fehlt“ steht oben.
+  „Zu Schritt 2“ führt zurück, bisherige Eingaben bleiben erhalten.
+- 2,560 zeigt „übernommen als 2,56“; 2 560 zeigt „übernommen als 2560“;
+  1 5 erhält Feldhilfe und wird nicht zu 15.
+- Kiwi statt altem Platzhalter als App-Symbol prüfen.
+- Die drei bisherigen Vergleichsfälle erneut prüfen. Samsung-Tastatur und
+  Gerätesystem notieren; Emulator-Ergebnis ersetzt diesen Gerätetest nicht.

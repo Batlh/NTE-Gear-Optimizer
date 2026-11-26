@@ -24,6 +24,8 @@ subprocess.run(
         '--clean',
         '--onedir',
         '--windowed',
+        '--icon',
+        str(root / 'src/nte_gear_optimizer_app/assets/icons/kiwi_icon.ico'),
         '--name',
         'NTEGearOptimizer',
         '--paths',

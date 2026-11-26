@@ -55,6 +55,7 @@ def test_workflow_signing_scope_and_no_password_commandline():
     'prefix',
     [
         'Signer #1',
+        'Signer (minSdkVersion=24, maxSdkVersion=32)',
         'V2 Signer:',
         'V3.1 Signer: (minSdkVersion=33, maxSdkVersion=2147483647)',
     ],

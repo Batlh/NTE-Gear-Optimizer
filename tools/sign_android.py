@@ -33,9 +33,7 @@ def certificate_metadata(output):
     owners = set()
     fingerprints = set()
     for line in output.splitlines():
-        if not line.startswith(
-            ('Signer #', 'V2 Signer:', 'V3 Signer:', 'V3.1 Signer:', 'V3.2 Signer:')
-        ):
+        if 'Source Stamp' in line or 'SourceStamp' in line:
             continue
         if ' certificate DN: ' in line:
             owners.add(line.split(' certificate DN: ', 1)[1].strip())
@@ -106,6 +104,15 @@ def main():
         verified = checked(
             [str(signer), 'verify', '--verbose', '--print-certs', str(output)]
         )
+        public_lines = [
+            line
+            for line in verified.splitlines()
+            if ' certificate DN: ' in line or ' certificate SHA-256 digest: ' in line
+        ]
+        with Path('build/certificate_public.txt').open(
+            'x', encoding='utf-8', newline='\n'
+        ) as stream:
+            stream.write('\n'.join(public_lines) + '\n')
         owner, fingerprint = certificate_metadata(verified)
         record = {
             'alias': alias,

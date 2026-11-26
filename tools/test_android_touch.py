@@ -101,6 +101,35 @@ def open_list(label):
     return s
 
 
+def settled_option(expected):
+    # Overscroll rebounds after adb swipe. Tap coordinates must refer to the
+    # settled geometry, not an earlier snapshot taken during that rebound.
+    previous = None
+    stable = 0
+    for _ in range(20):
+        s = fresh()
+        modal = s.get('modal')
+        assert modal, 'Selection closed before tapping the requested option'
+        row = next(r for r in modal['rows'] if r['id'] == expected)
+        position = row['rect']
+        if (
+            previous is not None
+            and max(abs(a - b) for a, b in zip(position, previous)) < 1
+        ):
+            stable += 1
+        else:
+            stable = 0
+        previous = position
+        if stable >= 2 and not modal['touch_active']:
+            assert visible(position, modal['scroll']), (
+                expected,
+                position,
+                modal['scroll'],
+            )
+            return s, row
+    raise AssertionError('Option geometry did not settle: ' + str(expected))
+
+
 def choose(label, identifier=None, last=False):
     s = open_list(label)
     expected = s['modal']['rows'][-1]['id'] if last else identifier
@@ -119,7 +148,12 @@ def choose(label, identifier=None, last=False):
         s = fresh()
         row = next(r for r in s['modal']['rows'] if r['id'] == expected)
         assert visible(row['rect'], s['modal']['scroll'])
+    s, row = settled_option(expected)
+    if last:
         screenshot('selection_' + str(len(evidence)))
+        # Screenshot transport itself takes time; acquire settled coordinates
+        # again before the actual tap. Never retry a wrong selection as PASS.
+        s, row = settled_option(expected)
     scrolled = s['modal']['scroll_y']
     tap(row['rect'], s)
     s = fresh()

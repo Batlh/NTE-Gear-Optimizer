@@ -21,6 +21,24 @@ def install_probe(app):
         return
     from kivy.clock import Clock
     from kivy.core.window import Window
+    from collections import deque
+
+    motions = deque(maxlen=16)
+
+    def observe_motion(window, kind, touch):
+        motions.append(
+            {
+                'event': kind,
+                'sx': getattr(touch, 'sx', None),
+                'sy': getattr(touch, 'sy', None),
+                'x': getattr(touch, 'x', None),
+                'y': getattr(touch, 'y', None),
+                'device': str(getattr(touch, 'device', '')),
+            }
+        )
+        return False
+
+    Window.bind(on_motion=observe_motion)
 
     def rect(widget):
         x, y = widget.to_window(*widget.pos)
@@ -36,6 +54,7 @@ def install_probe(app):
         activity.getWindow().getDecorView().getWindowVisibleDisplayFrame(frame)
         state = {
             'window': list(Window.size),
+            'motions': list(motions),
             'frame': [frame.left, frame.top, frame.right, frame.bottom],
             'step': app.vm.step,
             'scroll_y': app.scroll.scroll_y,
@@ -66,6 +85,9 @@ def install_probe(app):
                 'bounds': rect(popup),
                 'scroll': rect(scroll),
                 'scroll_y': scroll.scroll_y,
+                'scroll_timeout': scroll.scroll_timeout,
+                'scroll_distance': scroll.scroll_distance,
+                'touch_active': scroll._touch is not None,
                 'cancel': rect(cancel),
                 'rows': [
                     {'id': value, 'name': name, 'rect': rect(w)}

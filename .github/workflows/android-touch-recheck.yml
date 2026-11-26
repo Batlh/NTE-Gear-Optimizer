@@ -2,7 +2,7 @@ name: phase2a-touch-recheck
 on:
   push:
     branches: [v029-phase2a]
-    paths: [tools/test_android_touch.py, .github/workflows/android-touch-recheck.yml]
+    paths: [tools/test_android_touch.py]
 permissions:
   contents: read
   actions: read
@@ -11,18 +11,20 @@ jobs:
     if: github.repository == 'Batlh/NTE-Gear-Optimizer'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
-    env:
-      NTE_EXPECTED_APP_COMMIT: c29dbd0ab6f980cea287086bd7397fa05713b8c1
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: '3.14.10'
+      - id: binary
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python tools/select_emulator_artifact.py
       - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
         with:
           name: android-emulator-only-apk
           path: emulator_apk
-          run-id: 45893115735
+          run-id: ${{ steps.binary.outputs.run_id }}
           github-token: ${{ github.token }}
       - run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

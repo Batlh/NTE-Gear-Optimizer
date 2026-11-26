@@ -125,7 +125,9 @@ class ComparisonApp(App):
             size=lambda w, v: setattr(background, 'size', v),
         )
         layout.add_widget(self.label(title, 21))
-        scroll = ScrollView(do_scroll_x=False)
+        scroll = ScrollView(
+            do_scroll_x=False, scroll_timeout=350, scroll_distance=dp(12)
+        )
         rows = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(4))
         rows.bind(minimum_height=rows.setter('height'))
         self.selector_rows = []
@@ -239,7 +241,9 @@ class ComparisonApp(App):
         self.root_box.add_widget(self.label(T.SUBTITLE, 14))
         self.progress = self.label('', 20)
         self.root_box.add_widget(self.progress)
-        self.scroll = ScrollView(do_scroll_x=False)
+        self.scroll = ScrollView(
+            do_scroll_x=False, scroll_timeout=350, scroll_distance=dp(12)
+        )
         self.body = BoxLayout(orientation='vertical', spacing=dp(10), size_hint_y=None)
         self.body.bind(minimum_height=self.body.setter('height'))
         self.scroll.add_widget(self.body)

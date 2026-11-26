@@ -57,3 +57,15 @@ def test_mutations_are_detected(mutant):
             return format(number,'.9f')
     probes=[(v['Input'],v['ExpectedRounded']) for v in VECTORS]+[('123456789012344.5','123456789012345.000000000'),('1.00500000049999499','1.005000000')]
     assert any(wrong(value)!=expected for value,expected in probes),mutant
+
+
+def test_invalid_input_ignores_ambient_disabled_traps():
+    from decimal import InvalidOperation, setcontext
+    original=getcontext().copy()
+    try:
+        getcontext().traps[InvalidOperation]=False
+        with pytest.raises(InputError) as caught: evaluate('bad')
+        assert caught.value.category=='invalid'
+        assert getcontext().traps[InvalidOperation] is False
+    finally:
+        setcontext(original)

@@ -26,7 +26,7 @@ def evaluate(value: str | None) -> Result:
     if not isinstance(value, str):
         raise InputError("invalid")
     try:
-        number = Decimal(value)
+        number = Decimal(value, context=Context(prec=15, rounding=ROUND_HALF_UP))
     except (DecimalException, ValueError):
         raise InputError("invalid") from None
     if number.is_nan():

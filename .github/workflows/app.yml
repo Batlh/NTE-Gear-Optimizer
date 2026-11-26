@@ -67,6 +67,7 @@ jobs:
           python-version: '3.12.14'
       - run: sudo apt-get update && sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf automake libtool libltdl-dev pkg-config zlib1g-dev libncurses-dev libtinfo6 cmake libffi-dev libssl-dev libbz2-dev liblzma-dev gettext autopoint
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        id: android-cache
         with:
           path: |
             ~/.buildozer/android/platform/android-sdk
@@ -79,6 +80,16 @@ jobs:
       - run: python tools/configure_android_ci.py
       - run: python tools/stage_android.py
       - run: buildozer -v android debug
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        if: steps.android-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ~/.buildozer/android/platform/android-sdk
+            ~/.buildozer/android/platform/android-ndk-r28c
+            .buildozer/android/platform/build-${{ matrix.abi }}/other_builds
+            .buildozer/android/platform/build-${{ matrix.abi }}/packages
+            .buildozer/android/platform/build-${{ matrix.abi }}/python-installs
+          key: ${{ steps.android-cache.outputs.cache-primary-key }}
       - name: Sign fixed-key user test APK
         if: matrix.abi == 'arm64-v8a'
         env:

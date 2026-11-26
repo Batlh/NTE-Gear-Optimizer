@@ -49,3 +49,37 @@ def test_workflow_signing_scope_and_no_password_commandline():
     script = (ROOT / 'tools/sign_android.py').read_text(encoding='utf-8')
     assert "'env:ANDROID_KEY_PASSWORD'" in script and "'-storepass:env'" in script
     assert 'keypath.unlink' in script
+
+
+@pytest.mark.parametrize(
+    'prefix',
+    [
+        'Signer #1',
+        'V2 Signer:',
+        'V3.1 Signer: (minSdkVersion=33, maxSdkVersion=2147483647)',
+    ],
+)
+def test_public_certificate_formats(prefix):
+    output = (
+        prefix
+        + ' certificate DN: CN=NTE Gear Optimizer Release\n'
+        + prefix
+        + ' certificate SHA-256 digest: '
+        + 'ab' * 32
+        + '\n'
+    )
+    assert module.certificate_metadata(output) == (
+        'CN=NTE Gear Optimizer Release',
+        'AB' * 32,
+    )
+
+
+def test_debug_and_inconsistent_certificates_are_rejected():
+    output = (
+        'V2 Signer: certificate DN: CN=Android Debug\nV2 Signer: certificate SHA-256 digest: '
+        + 'ab' * 32
+    )
+    with pytest.raises(ValueError):
+        module.certificate_metadata(output)
+    with pytest.raises(ValueError):
+        module.certificate_metadata('Verifies without public metadata')

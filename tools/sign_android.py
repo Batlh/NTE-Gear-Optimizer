@@ -27,6 +27,33 @@ def checked(command):
     return completed.stdout
 
 
+def certificate_metadata(output):
+    # Build-tools uses scheme-labelled V2/V3 Signer lines; older versions
+    # use Signer #1. Require one consistent certificate across schemes.
+    owners = set()
+    fingerprints = set()
+    for line in output.splitlines():
+        if not line.startswith(
+            ('Signer #', 'V2 Signer:', 'V3 Signer:', 'V3.1 Signer:', 'V3.2 Signer:')
+        ):
+            continue
+        if ' certificate DN: ' in line:
+            owners.add(line.split(' certificate DN: ', 1)[1].strip())
+        if ' certificate SHA-256 digest: ' in line:
+            fingerprints.add(
+                line.split(' certificate SHA-256 digest: ', 1)[1].strip().upper()
+            )
+    if len(owners) != 1 or len(fingerprints) != 1:
+        raise ValueError(
+            'STOP: certificate output missing or inconsistent across signature schemes'
+        )
+    owner = owners.pop()
+    fingerprint = fingerprints.pop()
+    if 'Android Debug' in owner or not re.fullmatch('[0-9A-F]{64}', fingerprint):
+        raise ValueError('STOP: non-release or invalid public signing certificate')
+    return owner, fingerprint
+
+
 def main():
     assert os.environ.get('GITHUB_ACTIONS') == 'true'
     assert os.environ.get('GITHUB_EVENT_NAME') == 'push'
@@ -79,15 +106,11 @@ def main():
         verified = checked(
             [str(signer), 'verify', '--verbose', '--print-certs', str(output)]
         )
-        owner = re.search(r'^Signer #1 certificate DN: (.+)$', verified, re.M)
-        fingerprint = re.search(
-            r'^Signer #1 certificate SHA-256 digest: ([0-9a-fA-F]+)$', verified, re.M
-        )
-        assert owner and fingerprint and 'Android Debug' not in owner.group(1)
+        owner, fingerprint = certificate_metadata(verified)
         record = {
             'alias': alias,
-            'certificate_owner': owner.group(1),
-            'certificate_sha256': fingerprint.group(1).upper(),
+            'certificate_owner': owner,
+            'certificate_sha256': fingerprint,
             'apk_sha256': hashlib.sha256(output.read_bytes()).hexdigest().upper(),
             'verified': True,
             'version_code': int(os.environ['NTE_VERSION_CODE']),

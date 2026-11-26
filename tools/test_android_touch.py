@@ -239,8 +239,16 @@ try:
     adb('shell', 'input', 'swipe', '500', '1300', '500', '500', '280')
     s = fresh()
     assert abs(s['scroll_y'] - old) > 0.001, 'Page swipe did not scroll'
+    devices = sorted({event['device'] for event in s.get('motions', [])})
+    assert 'sdl' in devices and 'mouse' not in devices, (
+        'Duplicate Android mouse provider still active',
+        devices,
+    )
     report = {
         'status': 'PASS',
+        'android_input_devices': devices,
+        'app_source_commit': metadata['commit'],
+        'test_driver_commit': os.environ['GITHUB_SHA'],
         'selectors': evidence,
         'cancel_preserved': True,
         'short_tap_ime_open_after_2_seconds': True,

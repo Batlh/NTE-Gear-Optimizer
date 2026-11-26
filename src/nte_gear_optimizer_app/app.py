@@ -6,7 +6,10 @@ from pathlib import Path
 from importlib.resources import files
 from kivy.config import Config
 
-Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
+from kivy.utils import platform as KIVY_PLATFORM
+from .input_config import configure_input
+
+configure_input(Config, KIVY_PLATFORM)
 Config.set('kivy', 'exit_on_escape', '0')
 if os.environ.get('NTE_TEST_MODE') == 'smoke':
     Config.set('graphics', 'width', '900')

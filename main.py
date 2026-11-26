@@ -16,6 +16,10 @@ if os.environ.get('NTE_TEST_MODE') == 'smoke':
         'x', encoding='utf-8', newline='\n'
     )
 
+# ANGLE provides a real GLES context even on Windows without a desktop GL driver.
+if sys.platform == 'win32':
+    os.environ.setdefault('KIVY_GL_BACKEND', 'angle_sdl2')
+
 from nte_gear_optimizer_app.app import run
 
 if __name__ == '__main__':

@@ -6,6 +6,14 @@ from pathlib import Path
 if os.environ.get('GITHUB_ACTIONS') != 'true' or sys.platform != 'win32':
     raise SystemExit('Windows CI only')
 root = Path(__file__).resolve().parents[1]
+# Kivy's analysis hook imports Window; do not open the CI host's GL-1.1 modal.
+os.environ.setdefault('KIVY_GL_BACKEND', 'angle_sdl2')
+from kivy_deps import angle, sdl2
+
+binary_args = []
+for folder in angle.dep_bins + sdl2.dep_bins:
+    for dll in sorted(Path(folder).glob('*.dll')):
+        binary_args.extend(['--add-binary', str(dll) + os.pathsep + '.'])
 subprocess.run(
     [
         sys.executable,
@@ -19,6 +27,9 @@ subprocess.run(
         'NTEGearOptimizer',
         '--paths',
         'src',
+        *binary_args,
+        '--hidden-import',
+        'kivy_deps.angle',
         '--collect-data',
         'kivy',
         '--collect-binaries',

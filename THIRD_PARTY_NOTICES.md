@@ -19,6 +19,8 @@ DATA_SOURCES.md in bundles (data/SOURCES.md in the repository).
 - Roboto Regular: Copyright 2011 Google Inc.; Apache License 2.0, confirmed in
   the actual font's metadata. Font and license are both shipped. It covers the
   application's German characters, ± and √. No emoji or official game font.
+- ANGLE 0.5.0 Windows dependency wheel: BSD-style ANGLE project license;
+  its wheel notices are copied verbatim into wheel_notices in the bundle.
 - Pillow: HPND-style PIL license and bundled codec notices, preserved from its
   wheel in Windows. JPEG/zlib/libpng/FreeType may be included by runtime wheels.
 - OpenSSL: Apache License 2.0; third_party_licenses/OpenSSL_APACHE2.txt.

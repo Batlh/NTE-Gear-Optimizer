@@ -286,10 +286,32 @@ try:
     screenshot('keyboard_open')
     # Visible display frame bottom is the top of IME while it is shown.
     fx, fy = point(field['rect'], s)
-    assert s['frame'][1] <= fy < s['frame'][3], ('Focused field covered by IME', s)
+    assert s['rotation'] == 0, (
+        'Portrait fixture requires unrotated rendered coordinates'
+    )
+    half_height = field['rect'][3] / 2
+    assert s['frame'][1] <= fy - half_height and fy + half_height <= s['frame'][3], (
+        'Focused field covered by IME',
+        s,
+    )
+    keyboard_render_evidence = {
+        'field': field['rect'],
+        'frame': s['frame'],
+        'render_origin': s['render_origin'],
+    }
+
     adb('shell', 'input', 'keyevent', '66')
     s = fresh()
     assert not s['inputs']['current:ScaleDirect']['focus']
+    closed_dump = adb('shell', 'dumpsys', 'input_method')
+    (out / 'ime_closed.txt').write_text(closed_dump, encoding='utf-8', newline='\n')
+    assert re.search(
+        r'(mInputShown|isInputViewShown|mIsInputViewShown)=false', closed_dump
+    ), 'No explicit closed IME state'
+    assert not re.search(
+        r'(mInputShown|isInputViewShown|mIsInputViewShown)=true', closed_dump
+    ), 'IME still shown after Done'
+
     old = s['scroll_y']
     swipe(s['page_scroll'], s)
     s = fresh()
@@ -310,8 +332,11 @@ try:
         'entered_text': '2560',
         'focused_field_visible': True,
         'done_defocuses': True,
+        'done_closes_ime': True,
+        'keyboard_render_evidence': keyboard_render_evidence,
+        'emulator_keyboard': keyboard,
         'page_swipe_scrolls': True,
-        'samsung_keyboard': 'UNVERIFIED: emulator uses AOSP keyboard',
+        'samsung_keyboard': 'UNVERIFIED: emulator keyboard differs from Samsung',
     }
     (out / 'core_touch_result.json').write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + '\n',

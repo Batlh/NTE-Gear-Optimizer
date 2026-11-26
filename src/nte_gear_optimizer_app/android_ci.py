@@ -42,6 +42,9 @@ def install_probe(app):
 
     def rect(widget):
         x, y = widget.to_window(*widget.pos)
+        # below_target pans the render matrix without changing logical widget
+        # coordinates. Observe the actual matrix; do not reproduce its formula.
+        x, y, _ = Window.render_context['modelview_mat'].transform_point(x, y, 0)
         return [
             round(x, 2),
             round(y, 2),
@@ -54,6 +57,11 @@ def install_probe(app):
         activity.getWindow().getDecorView().getWindowVisibleDisplayFrame(frame)
         state = {
             'window': list(Window.size),
+            'render_origin': list(
+                Window.render_context['modelview_mat'].transform_point(0, 0, 0)
+            ),
+            'rotation': Window.rotation,
+            'softinput_mode': Window.softinput_mode,
             'motions': list(motions),
             'frame': [frame.left, frame.top, frame.right, frame.bottom],
             'step': app.vm.step,

@@ -66,10 +66,10 @@ def test_bonus_default_empty_and_zero_is_explicit():
     vm.set_override('ProfileType', 'DAMAGE')
     vm.set_override('ScalingStat', 'ANG')
     assert vm.current == {} and vm.item_x == {} and vm.item_y == {}
-    vm.zero_group('Boni')
+    vm.zero_group('bonus')
     assert vm.current['UniversalPP'] == '0'
     assert not vm.item_x
-    vm.zero_group('Boni', parts=True)
+    vm.zero_group('bonus', parts=True)
     assert vm.item_y['ReductionPP'] == '0'
 
 
@@ -186,3 +186,72 @@ def test_known_irrelevant_values_remain_visible_without_becoming_required():
     r = vm.calculate()
     assert r['engine']['Verdict'] == 'BETTER' and r['current']['CritRatePP'] == '50'
     assert r['part_deltas']['CritRatePP'] == '10' and 'Krit-Rate' in vm.display()
+
+
+def test_after_totals_are_visible_and_invalid_ark_level_is_local():
+    vm = ready_model()
+    vm.choose_ark('ARK_ECHOES_ON_HOLD')
+    vm.ark_level = 'bad'
+    result = vm.calculate()
+    assert result['resolved']['AfterScaleDirect'] == '110'
+    assert 'Gesamtwerte nach dem Tausch' in vm.display()
+    assert (
+        'Ark-Level ungültig' in vm.display() and result['engine']['Verdict'] == 'BETTER'
+    )
+
+
+def test_white_basis_control_only_for_an_actual_percentage_change():
+    vm = ready_model()
+    assert not vm.needs_white_base()
+    vm.item_y['ScalingPercentPP'] = '10'
+    assert vm.needs_white_base()
+    vm.item_x['ScalingPercentPP'] = '10'
+    assert not vm.needs_white_base()
+
+
+def test_after_heading_never_labels_y_as_x_and_retains_known_white_base():
+    vm = ready_model()
+    vm.white_panel_base = '50'
+    vm.item_y['ScalingPercentPP'] = '10'
+    text = vm.display()
+    assert 'Gesamt-ANG mit Teil Y: 115' in text
+    assert vm.last_result['white_panel_base'] == '50'
+
+
+def test_distinct_branch_scaling_channels_never_share_one_generic_total():
+    vm = ready_model()
+    profile = {
+        'BuildProfileID': 'test_profile',
+        'CharacterID': 'ELYMS',
+        'Name': 'test',
+        'SourceStatus': 'TEST',
+    }
+    vm.catalog['Profiles'].append(profile)
+    vm.catalog['Branches'].extend(
+        [
+            {
+                'BuildProfileID': 'test_profile',
+                'ComparisonBranchID': 'ang',
+                'ProfileType': 'DAMAGE',
+                'ScalingStat': 'ANG',
+                'CritEligible': 'FALSE',
+                'BreakEligible': 'FALSE',
+                'CycleReactionType': 'NONE',
+            },
+            {
+                'BuildProfileID': 'test_profile',
+                'ComparisonBranchID': 'lp',
+                'ProfileType': 'HEAL',
+                'ScalingStat': 'LP',
+            },
+        ]
+    )
+    vm.profile_id = 'test_profile'
+    vm.current['HealingPP'] = '0'
+    vm.item_x['HealingPP'] = '0'
+    vm.item_y['HealingPP'] = '0'
+    assert vm.ambiguous_scaling() and 'ScaleDirect' not in vm.fields()
+    result = vm.calculate()
+    assert result['engine']['Verdict'] is None
+    assert result['part_deltas']['ScaleDirect'] == '10'
+    assert 'unterschiedliche Gesamtwerte' in vm.display()

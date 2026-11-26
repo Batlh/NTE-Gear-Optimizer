@@ -45,6 +45,9 @@ jobs:
             dist/NTE_Gear_Optimizer_v029_Phase2A_Windows_Debug.zip
             build/windows_smoke
   android-debug:
+    concurrency:
+      group: phase2a-android-native
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:

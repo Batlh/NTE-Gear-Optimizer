@@ -109,3 +109,61 @@ FIELD_LABELS.update(
 )
 
 SESSION = 'Eingaben bleiben nur in dieser geöffneten Sitzung.'
+
+GROUP_NAMES = {
+    'scale': 'Skalierung',
+    'bonus': 'Boni',
+    'crit': 'Krit',
+    'break': 'Bruch',
+    'cycle': 'Zyklus',
+    'heal': 'Heilung',
+    'shield': 'Schild',
+}
+AFTER_TOTALS = 'Gesamtwerte nach dem Tausch'
+BRANCH_HINTS = {
+    'FIXED_OFFSET_STATUS_UNKNOWN': 'Der feste Anteil dieses Zweigs ist unbekannt. Der Vergleich ist nur ein Näherungswert.',
+    'FIXED_OFFSET_NEAR_THRESHOLD': 'Der feste Anteil kann das Urteil nahe der Entscheidungsgrenze ändern.',
+    'AFFINE_OFFSET_NOT_MODELLED': 'Skalierung und Bonus ändern sich zugleich; der feste Anteil ist dafür nicht ausreichend modelliert.',
+    'FIXED_OFFSET_THRESHOLD_DATA_UNAVAILABLE': 'Für die Prüfung des festen Anteils fehlt eine belegte Größe.',
+}
+MESSAGES = {
+    'empty': 'Keine bekannten Werte in diesem Bereich.',
+    'source': 'Quelle: ',
+    'unknown': 'unbekannt',
+    'unknown_date': 'Datum unbekannt',
+    'ratio': 'Verhältnis: ',
+    'range': 'Mögliche Verhältnisse: ',
+    'to': ' bis ',
+    'invalid': 'Ungültige Zahl',
+    'ark80': ' · Lv80 · Grund-ANG ',
+    'ark_authority': ' (freigegebener Ausgangswert)',
+    'ark_level': ' · Level ',
+    'ark_unknown': ' · Grundwert unbekannt',
+    'ark_invalid': 'Ark-Level ungültig: ganze Zahl von 1 bis 80. Der Vergleich eingegebener Gesamtwerte bleibt möglich.',
+    'source_condition': 'Bedingung aus der Quelle: ',
+    'source_old': 'Quellprofil: für 1.5 nicht geprüft.',
+    'branch': 'Zweig ',
+    'current_suffix': ' aktuell',
+    'after_suffix': ' nach Tausch',
+}
+
+
+def field_label(field, scale, parts=False, after=False):
+    if field == 'ScaleDirect':
+        return (
+            ('Flache ' + SCALE_NAMES.get(scale, 'Skalierung') + ' auf dem Teil')
+            if parts
+            else (
+                'Gesamt-'
+                + SCALE_NAMES.get(scale, 'Skalierung')
+                + (' mit Teil Y' if after else ' mit Teil X')
+            )
+        )
+    if field == 'ScalingPercentPP':
+        return SCALE_NAMES.get(scale, 'Skalierung') + ' (%) auf dem Teil'
+    return FIELD_LABELS.get(field, field)
+
+
+MESSAGES['select_branch_scale'] = (
+    'Einen Leistungszweig wählen: die Zweige benötigen unterschiedliche Gesamtwerte. Bekannte Teileänderungen bleiben sichtbar.'
+)

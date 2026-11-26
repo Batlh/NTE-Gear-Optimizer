@@ -59,6 +59,7 @@ class ComparisonViewModel:
             raise ValueError('Charakter ist nicht im gebündelten Katalog')
         if identifier != self.character_id:
             self.current.clear()
+            self.white_panel_base = ''
             self.profile_id = None
             self.branch_id = None
             self.overrides.clear()
@@ -162,28 +163,53 @@ class ComparisonViewModel:
             result += ['ShieldPP']
         return result
 
+    def input_scaling_stat(self):
+        if self.branches() and self.branch_id is None:
+            scales = {r.get('ScalingStat') for r in self.branches()} & {
+                'ANG',
+                'LP',
+                'VER',
+            }
+            return next(iter(scales)) if len(scales) == 1 else 'UNBEKANNT'
+        return self.profile().get('ScalingStat')
+
+    def ambiguous_scaling(self):
+        return (
+            self.branch_id is None
+            and len(
+                {r.get('ScalingStat') for r in self.branches()} & {'ANG', 'LP', 'VER'}
+            )
+            > 1
+        )
+
     def fields(self):
         if self.branches() and self.branch_id is None:
-            return list(
+            result = list(
                 dict.fromkeys(
                     f
                     for b in self.branches()
                     for f in self.fields_for(branch_profile(b))
                 )
             )
+            if self.ambiguous_scaling():
+                result = [f for f in result if f != 'ScaleDirect']
+            return result
         return self.fields_for(self.profile())
 
     def groups(self, parts=False):
         active = self.fields()
         result = {}
         for name, fields in [
-            ('Skalierung', ['ScaleDirect']),
-            ('Boni', ['UniversalPP', 'ElementPP', 'SkillPP', 'OtherPP', 'ReductionPP']),
-            ('Krit', ['CritRatePP', 'CritDamagePP']),
-            ('Bruch', ['Break', 'ExtraBreakBuff']),
-            ('Zyklus', ['CycleIntensity']),
-            ('Heilung', ['HealingPP']),
-            ('Schild', ['ShieldPP']),
+            ('scale', ['ScaleDirect']),
+            (
+                'bonus',
+                ['UniversalPP', 'ElementPP', 'SkillPP', 'OtherPP', 'ReductionPP'],
+            ),
+            ('crit', ['CritRatePP', 'CritDamagePP']),
+            ('break', ['Break', 'ExtraBreakBuff']),
+            ('cycle', ['CycleIntensity']),
+            ('heal', ['HealingPP']),
+            ('shield', ['ShieldPP']),
         ]:
             subset = [f for f in fields if f in active]
             if subset:
@@ -209,22 +235,33 @@ class ComparisonViewModel:
         row = next((r for r in self.catalog['Arks'] if r['ArkID'] == self.ark_id), None)
         if row is None:
             return T.NO_CHOICE
+        level = self.ark_level.strip()
+        if level and (not level.isdigit() or not 1 <= int(level) <= 80):
+            return T.MESSAGES['ark_invalid']
         if (
             self.ark_level.strip() == '80'
             and row['ArkID'] in self.catalog['Decisions']['R15-04']['arks']
         ):
             return (
                 row['ArkName']
-                + ' · Lv80 · Grund-ANG '
+                + T.MESSAGES['ark80']
                 + self.catalog['Decisions']['R15-04']['base_atk']
-                + ' (Nutzerentscheidung R15-04)'
+                + T.MESSAGES['ark_authority']
             )
         return (
             row['ArkName']
-            + ' · Level '
+            + T.MESSAGES['ark_level']
             + (self.ark_level.strip() or T.NO_CHOICE)
-            + ' · Grundwert unbekannt'
+            + T.MESSAGES['ark_unknown']
         )
+
+    def needs_white_base(self):
+        try:
+            before = normalize(self.item_x.get('ScalingPercentPP'))
+            after = normalize(self.item_y.get('ScalingPercentPP'))
+            return before is not None and after is not None and before != after
+        except ValueUnavailable:
+            return False
 
     def calculate(self):
         fields = self.fields()
@@ -238,7 +275,7 @@ class ComparisonViewModel:
                 except ValueUnavailable:
                     result[field] = None
                     errors[prefix + ' ' + T.FIELD_LABELS.get(field, field)] = (
-                        'Ungültige Zahl'
+                        T.MESSAGES['invalid']
                     )
             return result
 
@@ -250,7 +287,7 @@ class ComparisonViewModel:
             white = normalize(self.white_panel_base)
         except ValueUnavailable:
             white = None
-            errors[T.FIELD_LABELS['WhitePanelBase']] = 'Ungültige Zahl'
+            errors[T.FIELD_LABELS['WhitePanelBase']] = T.MESSAGES['invalid']
         swap = compile_swap(current, x, y, fields, white_panel_base=white)
 
         # Retain valid known inputs even when the selected performance type
@@ -281,6 +318,13 @@ class ComparisonViewModel:
             'SelectedBranchID': self.branch_id,
             'ProfileOverrideBranchID': self.branch_id,
         }
+        if self.ambiguous_scaling():
+            # A generic scalar cannot mean ANG and LP/VER simultaneously.
+            # Preserve entered numbers/deltas as evidence, but do not feed a
+            # mislabeled scalar into any branch's performance calculation.
+            values['BeforeScaleDirect'] = None
+            values['AfterScaleDirect'] = None
+            swap['Diagnostics'].append(T.MESSAGES['select_branch_scale'])
         branches = []
         for row in self.branches():
             branches.append(
@@ -327,6 +371,15 @@ class ComparisonViewModel:
                 }
             )
         engine = compare(values, self.release(), branches=branches, targets=refs)
+        branch_notes = []
+        for index, branch in enumerate(engine.get('BranchEvaluations', []), 1):
+            branch_notes.extend(
+                T.MESSAGES['branch'] + str(index) + ': ' + message
+                for message in branch.get('Diagnostics', [])
+            )
+            hint = T.BRANCH_HINTS.get(branch.get('AffineStatus'))
+            if hint:
+                branch_notes.append(T.MESSAGES['branch'] + str(index) + ': ' + hint)
         engine['Diagnostics'] = [*engine.get('Diagnostics', []), *swap['Diagnostics']]
         self.last_result = {
             'engine': engine,
@@ -334,10 +387,15 @@ class ComparisonViewModel:
             'x': x_all,
             'y': y_all,
             'part_deltas': swap['PartDeltas'],
+            'white_panel_base': white,
+            'resolved': {
+                k: v for k, v in values.items() if k.startswith(('Before', 'After'))
+            },
             'errors': errors,
             'guide': refs,
             'ark': self.ark_summary(),
             'profile': self.profile(),
+            'input_scaling': self.input_scaling_stat(),
         }
         return self.last_result
 
@@ -350,12 +408,12 @@ class ComparisonViewModel:
             engine.get('OutputStatus') == 'READY'
             and engine.get('VerdictRatio') is not None
         ):
-            lines.append('Verhältnis: ' + engine['VerdictRatio'].replace('.', ','))
+            lines.append(T.MESSAGES['ratio'] + engine['VerdictRatio'].replace('.', ','))
         elif engine.get('RatioMin') is not None and engine.get('RatioMax') is not None:
             lines.append(
-                'Mögliche Verhältnisse: '
+                T.MESSAGES['range']
                 + engine['RatioMin'].replace('.', ',')
-                + ' bis '
+                + T.MESSAGES['to']
                 + engine['RatioMax'].replace('.', ',')
             )
         for heading, group in (
@@ -372,7 +430,21 @@ class ComparisonViewModel:
                 if v is not None
             ]
             if not any(v is not None for v in group.values()):
-                lines.append('Keine bekannten Werte in diesem Bereich.')
+                lines.append(T.MESSAGES['empty'])
+        if r['white_panel_base'] is not None:
+            lines.append(
+                T.FIELD_LABELS['WhitePanelBase']
+                + ': '
+                + r['white_panel_base'].replace('.', ',')
+            )
+        lines += ['', T.AFTER_TOTALS]
+        for key, value in r['resolved'].items():
+            if key.startswith('After') and value is not None:
+                lines.append(
+                    T.field_label(key[5:], r['input_scaling'], after=True)
+                    + ': '
+                    + value.replace('.', ',')
+                )
         lines += ['', T.GUIDE]
         if not r['guide']:
             lines.append(T.NO_GUIDE)
@@ -400,10 +472,10 @@ class ComparisonViewModel:
                 + status
             )
             lines.append(
-                'Quelle: '
+                T.MESSAGES['source']
                 + str(row.get('Source') or row.get('SourceID') or 'unbekannt')
                 + ' · '
-                + str(row.get('RetrievedAtUTC') or 'Datum unbekannt')
+                + str(row.get('RetrievedAtUTC') or T.MESSAGES['unknown_date'])
             )
         lines += ['', T.HINTS, T.ARK_WARNING]
         lines += [key + ': ' + value for key, value in r['errors'].items()]

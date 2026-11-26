@@ -8,6 +8,9 @@ from kivy.config import Config
 
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 Config.set('kivy', 'exit_on_escape', '0')
+if os.environ.get('NTE_TEST_MODE') == 'smoke':
+    Config.set('graphics', 'width', '900')
+    Config.set('graphics', 'height', '980')
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.text import LabelBase
@@ -26,6 +29,14 @@ FONT = str(files('nte_gear_optimizer_app').joinpath('assets/Roboto-Regular.ttf')
 LabelBase.register(name='NTEText', fn_regular=FONT, fn_bold=FONT)
 
 
+class TouchSpinnerOption(SpinnerOption):
+    def __init__(self, **kwargs):
+        kwargs.setdefault('height', dp(52))
+        kwargs.setdefault('font_name', 'NTEText')
+        kwargs.setdefault('font_size', sp(17))
+        super().__init__(**kwargs)
+
+
 class ComparisonApp(App):
     title = T.TITLE
 
@@ -33,6 +44,7 @@ class ComparisonApp(App):
         super().__init__(**kwargs)
         self.vm = ComparisonViewModel()
         self.inputs = {}
+        self.white_box = None
         self.zero_buttons = []
         self.smoke_index = 0
 
@@ -81,15 +93,10 @@ class ComparisonApp(App):
         displayed = next(
             (name for name, value in mapping.items() if value == current), T.NO_CHOICE
         )
-        option = type(
-            'NTEOption',
-            (SpinnerOption,),
-            {'height': dp(52), 'font_name': 'NTEText', 'font_size': sp(17)},
-        )
         widget = Spinner(
             text=displayed,
             values=tuple(mapping),
-            option_cls=option,
+            option_cls=TouchSpinnerOption,
             font_name='NTEText',
             font_size=sp(17),
             size_hint_y=None,
@@ -117,9 +124,21 @@ class ComparisonApp(App):
         elif group == 'level':
             widget.bind(text=lambda _, value: setattr(self.vm, 'ark_level', value))
         else:
-            widget.bind(text=lambda _, value: self.vm.set_value(group, field, value))
+            widget.bind(text=lambda _, value: self.input_changed(group, field, value))
         self.inputs[(group, field)] = widget
         return widget
+
+    def input_changed(self, group, field, value):
+        self.vm.set_value(group, field, value)
+        if field == 'ScalingPercentPP':
+            self.update_white_visibility()
+
+    def update_white_visibility(self):
+        if self.white_box is not None:
+            needed = self.vm.needs_white_base()
+            self.white_box.height = dp(112) if needed else 0
+            self.white_box.opacity = 1 if needed else 0
+            self.white_box.disabled = not needed
 
     def build(self):
         Window.clearcolor = (0.065, 0.085, 0.11, 1)
@@ -171,6 +190,7 @@ class ComparisonApp(App):
     def render(self):
         self.body.clear_widgets()
         self.inputs = {}
+        self.white_box = None
         self.zero_buttons = []
         self.progress.text = T.STEPS[self.vm.step]
         self.scroll.scroll_y = 1
@@ -228,7 +248,7 @@ class ComparisonApp(App):
                     r['ComparisonBranchID'],
                     r.get('ScalingMechanismName', '').replace('_', ' ').title()
                     + ' · '
-                    + str(r.get('ProfileType') or 'unbekannt'),
+                    + T.TYPE_NAMES.get(r.get('ProfileType'), T.MESSAGES['unknown']),
                 )
                 for r in self.vm.branches()
             ]
@@ -238,6 +258,20 @@ class ComparisonApp(App):
                 self.vm.branch_id,
                 lambda value: self.change(self.vm.choose_branch, value),
             )
+        selected = next(
+            (
+                r
+                for r in self.vm.branches()
+                if r['ComparisonBranchID'] == self.vm.branch_id
+            ),
+            None,
+        )
+        if selected:
+            self.body.add_widget(self.label(T.MESSAGES['source_old']))
+            if selected.get('Condition'):
+                self.body.add_widget(
+                    self.label(T.MESSAGES['source_condition'] + selected['Condition'])
+                )
         self.body.add_widget(self.label(T.ASSUMPTION))
         profile = self.vm.profile()
         # All-branch evaluation keeps each branch's released flags independent.
@@ -284,13 +318,23 @@ class ComparisonApp(App):
     def values_screen(self, parts=False):
         self.body.add_widget(self.label(T.SWAP_NOTE if parts else T.CURRENT_NOTE))
         for name, fields in self.vm.groups(parts).items():
-            self.body.add_widget(self.label(name, 21))
-            if parts or name != 'Skalierung':
+            self.body.add_widget(self.label(T.GROUP_NAMES[name], 21))
+            if parts or name != 'scale':
                 zero = self.button(T.ZERO, lambda name=name: self.zero(name, parts))
                 self.zero_buttons.append(zero)
                 self.body.add_widget(zero)
+            if parts:
+                self.body.add_widget(
+                    self.label(T.PART_X + '                         ' + T.PART_Y)
+                )
             for field in fields:
-                self.body.add_widget(self.label(T.FIELD_LABELS[field]))
+                self.body.add_widget(
+                    self.label(
+                        T.field_label(
+                            field, self.vm.profile().get('ScalingStat'), parts
+                        )
+                    )
+                )
                 row = BoxLayout(spacing=dp(8), size_hint_y=None, height=dp(52))
                 if parts:
                     row.add_widget(
@@ -305,10 +349,13 @@ class ComparisonApp(App):
                     )
                 self.body.add_widget(row)
         if parts and 'ScaleDirect' in self.vm.fields():
-            self.body.add_widget(self.label(T.FIELD_LABELS['WhitePanelBase']))
-            self.body.add_widget(
+            self.white_box = BoxLayout(orientation='vertical', size_hint_y=None)
+            self.white_box.add_widget(self.label(T.FIELD_LABELS['WhitePanelBase']))
+            self.white_box.add_widget(
                 self.text_input('white', 'WhitePanelBase', self.vm.white_panel_base)
             )
+            self.body.add_widget(self.white_box)
+            self.update_white_visibility()
         if not self.vm.fields():
             self.body.add_widget(self.label(T.UI['missing_profile']))
         if parts:

@@ -284,22 +284,17 @@ try:
     field = s['inputs']['current:ScaleDirect']
     assert field['text'] == '2560' and field['focus'], field
     screenshot('keyboard_open')
-    # Visible display frame bottom is the top of IME while it is shown.
-    fx, fy = point(field['rect'], s)
-    assert s['rotation'] == 0, (
-        'Portrait fixture requires unrotated rendered coordinates'
-    )
-    half_height = field['rect'][3] / 2
-    assert s['frame'][1] <= fy - half_height and fy + half_height <= s['frame'][3], (
-        'Focused field covered by IME',
-        s,
-    )
+    # Assignment step 6 requires the real screenshot as visibility evidence.
+    # Android native surface panning is not represented by Kivy widget/matrix
+    # coordinates here. Do not manufacture a visual PASS from those coordinates.
+    # Builder must inspect this exact hashed screenshot before accepting H01.
     keyboard_render_evidence = {
-        'field': field['rect'],
+        'field_logical_rect': field['rect'],
         'frame': s['frame'],
         'render_origin': s['render_origin'],
+        'automatic_coordinate_check': 'UNVERIFIED_NOT_SCREEN_COORDINATES',
+        'required_visual_check': 'PENDING_BUILDER_SCREENSHOT_REVIEW',
     }
-
     adb('shell', 'input', 'keyevent', '66')
     s = fresh()
     assert not s['inputs']['current:ScaleDirect']['focus']
@@ -322,7 +317,7 @@ try:
         devices,
     )
     report = {
-        'status': 'PASS',
+        'status': 'AUTOMATED_PASS_VISUAL_REVIEW_PENDING',
         'android_input_devices': devices,
         'app_source_commit': metadata['commit'],
         'test_driver_commit': os.environ['GITHUB_SHA'],
@@ -330,7 +325,7 @@ try:
         'cancel_preserved': True,
         'short_tap_ime_open_after_2_seconds': True,
         'entered_text': '2560',
-        'focused_field_visible': True,
+        'focused_field_visible': None,
         'done_defocuses': True,
         'done_closes_ime': True,
         'keyboard_render_evidence': keyboard_render_evidence,

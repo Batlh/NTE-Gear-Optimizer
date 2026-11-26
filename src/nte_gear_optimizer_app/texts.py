@@ -167,3 +167,15 @@ def field_label(field, scale, parts=False, after=False):
 MESSAGES['select_branch_scale'] = (
     'Einen Leistungszweig wählen: die Zweige benötigen unterschiedliche Gesamtwerte. Bekannte Teileänderungen bleiben sichtbar.'
 )
+
+
+STATUS_HINTS = {
+    'INDETERMINATE_MISSING_DEPENDENCY': 'Für diesen Vergleich fehlen relevante Angaben oder die möglichen Fälle führen zu unterschiedlichen Ergebnissen.',
+    'NICHT_ENTSCHEIDBAR': 'Die Leistungszweige oder die Prüfung des festen Anteils lassen kein gemeinsames Urteil zu.',
+}
+MESSAGES.update(
+    {
+        'status_unknown': 'Dieser Vergleich kann mit den vorliegenden Angaben nicht beurteilt werden.',
+        'proxy': 'Näherungswert ohne festen Anteil (kein Urteil): ',
+    }
+)

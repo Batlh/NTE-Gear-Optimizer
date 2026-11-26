@@ -380,7 +380,11 @@ class ComparisonViewModel:
             hint = T.BRANCH_HINTS.get(branch.get('AffineStatus'))
             if hint:
                 branch_notes.append(T.MESSAGES['branch'] + str(index) + ': ' + hint)
-        engine['Diagnostics'] = [*engine.get('Diagnostics', []), *swap['Diagnostics']]
+        engine['Diagnostics'] = [
+            *engine.get('Diagnostics', []),
+            *branch_notes,
+            *swap['Diagnostics'],
+        ]
         self.last_result = {
             'engine': engine,
             'current': current_all,
@@ -404,6 +408,16 @@ class ComparisonViewModel:
         engine = r['engine']
         verdict = T.VERDICTS.get(engine.get('Verdict'), T.INDETERMINATE)
         lines = [verdict, T.NOT_DPS, T.ASSUMPTION, r['ark']]
+        if engine.get('OutputStatus') != 'READY':
+            lines.append(
+                T.STATUS_HINTS.get(
+                    engine.get('OutputStatus'), T.MESSAGES['status_unknown']
+                )
+            )
+        if engine.get('BaseProxyRatio') is not None:
+            lines.append(
+                T.MESSAGES['proxy'] + engine['BaseProxyRatio'].replace('.', ',')
+            )
         if (
             engine.get('OutputStatus') == 'READY'
             and engine.get('VerdictRatio') is not None
@@ -425,7 +439,13 @@ class ComparisonViewModel:
         ):
             lines += ['', heading]
             lines += [
-                T.FIELD_LABELS.get(k, k) + ': ' + v.replace('.', ',')
+                T.field_label(
+                    k,
+                    r['input_scaling'],
+                    parts=heading in (T.PART_X, T.PART_Y, T.DIFFERENCE),
+                )
+                + ': '
+                + v.replace('.', ',')
                 for k, v in group.items()
                 if v is not None
             ]

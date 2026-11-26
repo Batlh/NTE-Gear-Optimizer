@@ -255,3 +255,44 @@ def test_distinct_branch_scaling_channels_never_share_one_generic_total():
     assert result['engine']['Verdict'] is None
     assert result['part_deltas']['ScaleDirect'] == '10'
     assert 'unterschiedliche Gesamtwerte' in vm.display()
+
+
+def test_branch_missing_values_and_fixed_offset_hint_reach_visible_result():
+    vm = ready_model()
+    vm.catalog['Profiles'].append(
+        {
+            'BuildProfileID': 'test_offset',
+            'CharacterID': 'ELYMS',
+            'Name': 'Test',
+            'SourceStatus': 'TEST',
+        }
+    )
+    vm.catalog['Branches'].append(
+        {
+            'BuildProfileID': 'test_offset',
+            'ComparisonBranchID': 'b',
+            'ProfileType': 'DAMAGE',
+            'ScalingStat': 'ANG',
+            'CritEligible': 'FALSE',
+            'BreakEligible': 'FALSE',
+            'CycleReactionType': 'NONE',
+            'FixedOffsetStatus': 'UNKNOWN',
+        }
+    )
+    vm.profile_id = 'test_offset'
+    vm.branch_id = 'b'
+    vm.overrides = {}
+    assert 'Der feste Anteil dieses Zweigs ist unbekannt' in vm.display()
+    vm.set_value('current', 'ScaleDirect', '')
+    assert 'Zweig 1:' in vm.display()
+    assert 'fehlen relevante Angaben' in vm.display()
+
+
+def test_all_bundled_profiles_and_branches_can_display_missing_inputs_without_crash():
+    vm = ComparisonViewModel()
+    for profile in vm.catalog['Profiles']:
+        vm.choose_character(profile['CharacterID'])
+        vm.choose_profile(profile['BuildProfileID'])
+        for branch in [None] + [r['ComparisonBranchID'] for r in vm.branches()]:
+            vm.choose_branch(branch)
+            assert vm.display()

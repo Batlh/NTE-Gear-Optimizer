@@ -673,13 +673,6 @@
       "Source": "https://www.prydwen.gg/neverness-to-everness/characters/zero"
     },
     {
-      "BuildProfileID": "BUILD_AKANE_RIN_TBD",
-      "CharacterID": "AKANE_RIN",
-      "Name": "TBD",
-      "SourceStatus": "NOT_VERIFIED_FOR_1_5",
-      "Source": "https://www.prydwen.gg/neverness-to-everness/characters/akane-rin"
-    },
-    {
       "BuildProfileID": "BUILD_BLACKBIRD_TBD",
       "CharacterID": "BLACKBIRD",
       "Name": "TBD",
@@ -713,6 +706,15 @@
       "Name": "Guide 1.5",
       "SourceStatus": "BASIS_UNVERIFIED",
       "Source": "PW_AKANE"
+    },
+    {
+      "BuildProfileID": "BUILD_BLACKBIRD_DEFAULT",
+      "CharacterID": "BLACKBIRD",
+      "Name": "Blackbird",
+      "SourceStatus": "NOT_VERIFIED_FOR_1_5",
+      "Source": "https://www.prydwen.gg/neverness-to-everness/characters/blackbird",
+      "SourceFile": "N3C1_PROFILES_REV_2.tsv",
+      "SourceSHA256": "F692DA74876CFDD448348F50E24D03CE08BBB2F4494BEB28D5C9E93CC19C2796"
     }
   ],
   "Branches": [
@@ -7483,5 +7485,15 @@
       "level": "80",
       "rejected_base_atk": "154"
     }
-  }
+  },
+  "UnavailableLegacyProfiles": [
+    {
+      "BuildProfileID": "BUILD_AKANE_RIN_TBD",
+      "CharacterID": "AKANE_RIN",
+      "Name": "TBD",
+      "SourceStatus": "NOT_VERIFIED_FOR_1_5",
+      "Source": "https://www.prydwen.gg/neverness-to-everness/characters/akane-rin",
+      "UnavailableReason": "NO_CANONICAL_1_5_CHARACTER_ID"
+    }
+  ]
 }

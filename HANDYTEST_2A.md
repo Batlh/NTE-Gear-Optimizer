@@ -18,7 +18,7 @@ OPB-10. Nicht den eigenen Spielstand auf diese Beispielzahlen ändern.
    Zyklusreaktion „keine“. Weiter.
 3. Unter aktuelle Werte den Gesamtwert 100 eintragen. In der Gruppe Boni
    ausdrücklich „kein Bonus (0)“ drücken. Weiter.
-4. Unter Teil X/Y in Skalierung und Boni jeweils ausdrücklich „kein Bonus (0)“
+4. Unter aktuelles/neues Teil in Skalierung und Boni jeweils ausdrücklich „kein Bonus (0)“
    drücken. Dann nur die unten genannten Felder ändern. Ein leeres Feld ist
    kein Nullwert. Die beiden Prozent-Skalierungsfelder bleiben ausdrücklich 0.
 
@@ -26,9 +26,9 @@ OPB-10. Nicht den eigenen Spielstand auf diese Beispielzahlen ändern.
 
 | Fall | Eingaben | Erwartung | Vertragsquelle |
 |---|---|---|---|
-| 1 | Teil X: skalierender flacher Wert 10; Teil Y: 20 | Besser; Verhältnis 1,100000000; Gesamtänderung +10 | KP01_UNUSED_BAD_MASTER / unveränderter OPB-05-Faktorpfad, 100 → 110 |
-| 2 | Zur Auswahl zurück. Krit „ja“. Aktuell Krit-Rate 50, Krit-Schaden 100. Teil X/Y: flacher Wert jeweils 10; Krit-Rate 0 → 10; Krit-Schaden 0 → 0. | Besser; Verhältnis 1,066666667 | KP04_CRIT_WEIGHT |
-| 3 | Wieder Krit „nein“. Aktuell Gesamtwert 100. Teil X flacher Wert 100; Teil Y 0. Alle Bonusfelder ausdrücklich 0. | Schlechter; Verhältnis 0,000000000; kein Fehlerdialog | KP04_AFTER_ZERO |
+| 1 | aktuelles Teil: skalierender flacher Wert 10; neues Teil: 20 | Besser; Verhältnis 1,100000000; Gesamtänderung +10 | KP01_UNUSED_BAD_MASTER / unveränderter OPB-05-Faktorpfad, 100 → 110 |
+| 2 | Zur Auswahl zurück. Krit „ja“. Aktuell Krit-Rate 50, Krit-Schaden 100. aktuelles/neues Teil: flacher Wert jeweils 10; Krit-Rate 0 → 10; Krit-Schaden 0 → 0. | Besser; Verhältnis 1,066666667 | KP04_CRIT_WEIGHT |
+| 3 | Wieder Krit „nein“. Aktuell Gesamtwert 100. aktuelles Teil flacher Wert 100; neues Teil 0. Alle Bonusfelder ausdrücklich 0. | Schlechter; Verhältnis 0,000000000; kein Fehlerdialog | KP04_AFTER_ZERO |
 
 Zusätzlich prüfen: Vor/Zurück behält Werte. Ein geleertes relevantes Bonusfeld
 zeigt ein unbestimmtes Ergebnis und eine konkrete Hilfe; bekannte Teilwerte
@@ -38,3 +38,20 @@ unbekannten Grundwert, keine geschätzte Kurve. Guide 1.4 ist für 1.5 ungeprüf
 
 Bitte Gerät/Android-Version, Lesbarkeit und die drei sichtbaren Ergebnisse
 notieren. Dieser Handytest ist noch kein durch den Builder erbrachter Beleg.
+
+
+## Ergänzung 2A-1: Tausenderpunkt und Ergebnisansicht
+
+Im Feld „Gesamt-ANG mit aktuellem Teil“ absichtlich `2.560` eingeben.
+Direkt an diesem Feld muss stehen: „Bitte ohne Tausenderpunkt eingeben,
+z. B. 2560 – oder Komma für Nachkommastellen“. Es darf nicht als 2,56
+übernommen werden. Bekannte Teileänderungen bleiben im Ergebnis sichtbar.
+Mit `2560` korrigieren. Dezimalzahlen mit Komma, z. B. `1,5`;
+auch `1.5` wird mit einer konkreten Komma-Hilfe abgewiesen.
+
+Das Ergebnis beginnt mit Urteil, Verhältnis und geänderten Werten. „Einzelwerte
+anzeigen“ öffnet die Details; „Auch Nullen und unveränderte Werte anzeigen“
+macht alle gespeicherten Eingaben sichtbar. Bei einem unbestimmten Ergebnis
+bleiben relevante Nullwerte, fehlende Angaben und Eingabehilfen bereits in der
+Zusammenfassung sichtbar. Ein-/Ausklappen darf das Urteil nicht ändern.
+Die normale App zeigt keine Schrift-Testzeile.

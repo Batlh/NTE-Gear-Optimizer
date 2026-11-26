@@ -52,11 +52,21 @@ assert report['result']['engine']['VerdictRatio'] == '1.100000000'
 assert report['result']['engine']['Verdict'] == 'BETTER'
 assert report['result']['engine']['Deltas']['ScaleDirect'] == '10'
 assert report['frozen'] == bool(args.exe)
+followup = json.loads((out / 'followup_checks.json').read_text(encoding='utf-8'))
+assert all(value == 'PASS' or value is True for value in followup.values()), followup
+assert (
+    len(list(out.glob('details_expanded*.png'))) == 1
+    and len(list(out.glob('input_help*.png'))) == 1
+)
 screenshots = list(out.glob('step_*.png'))
 assert len(screenshots) == 4
 from PIL import Image, ImageStat
 
-for screenshot in screenshots:
+for screenshot in (
+    screenshots
+    + list(out.glob('details_expanded*.png'))
+    + list(out.glob('input_help*.png'))
+):
     with Image.open(screenshot) as image:
         # Exclude window chrome: a title bar over a black client is not proof.
         client = image.convert('RGB').crop(

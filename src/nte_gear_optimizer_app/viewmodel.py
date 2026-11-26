@@ -1,6 +1,7 @@
 """Kivy-free presentation state; calculations are delegated to the pure core."""
 
 from decimal import Decimal
+import re
 from nte_gear_optimizer.models.profile_state import effective_profile
 from nte_gear_optimizer.numbers import number, text, ValueUnavailable
 from nte_gear_optimizer.comparison.swap import compile_swap
@@ -18,12 +19,31 @@ MANUAL_RELEASE = {
 }
 
 
+class InputFormatError(ValueUnavailable):
+    def __init__(self, hint):
+        self.hint = hint
+        super().__init__('Eingabe', True)
+
+
+def numeric_hint(value):
+    try:
+        normalize(value)
+    except ValueUnavailable as error:
+        return getattr(error, 'hint', T.MESSAGES['invalid'])
+    return ''
+
+
 def normalize(value):
     if value is None:
         return None
     if not isinstance(value, str):
         raise ValueUnavailable('Eingabe', True)
-    value = ''.join(value.split()).replace(',', '.')
+    value = ''.join(value.split())
+    if '.' in value:
+        if re.fullmatch(r'[+-]?[0-9]{1,3}(?:\.[0-9]{3})+', value.split(',')[0]):
+            raise InputFormatError(T.THOUSANDS_HINT)
+        raise InputFormatError(T.DECIMAL_HINT)
+    value = value.replace(',', '.')
     if not value:
         return None
     result = number(value)
@@ -272,10 +292,10 @@ class ComparisonViewModel:
             for field in active:
                 try:
                     result[field] = normalize(group.get(field))
-                except ValueUnavailable:
+                except ValueUnavailable as error:
                     result[field] = None
-                    errors[prefix + ' ' + T.FIELD_LABELS.get(field, field)] = (
-                        T.MESSAGES['invalid']
+                    errors[prefix + ' ' + T.FIELD_LABELS.get(field, field)] = getattr(
+                        error, 'hint', T.MESSAGES['invalid']
                     )
             return result
 
@@ -285,9 +305,11 @@ class ComparisonViewModel:
         y = parsed(self.item_y, T.PART_Y, part_fields)
         try:
             white = normalize(self.white_panel_base)
-        except ValueUnavailable:
+        except ValueUnavailable as error:
             white = None
-            errors[T.FIELD_LABELS['WhitePanelBase']] = T.MESSAGES['invalid']
+            errors[T.FIELD_LABELS['WhitePanelBase']] = getattr(
+                error, 'hint', T.MESSAGES['invalid']
+            )
         swap = compile_swap(current, x, y, fields, white_panel_base=white)
 
         # Retain valid known inputs even when the selected performance type
@@ -403,7 +425,7 @@ class ComparisonViewModel:
         }
         return self.last_result
 
-    def display(self):
+    def _full_display(self, show_all=True):
         r = self.last_result or self.calculate()
         engine = r['engine']
         verdict = T.VERDICTS.get(engine.get('Verdict'), T.INDETERMINATE)
@@ -430,6 +452,12 @@ class ComparisonViewModel:
                 + T.MESSAGES['to']
                 + engine['RatioMax'].replace('.', ',')
             )
+        changed = {
+            key
+            for group in (r['part_deltas'], engine.get('Deltas', {}))
+            for key, value in group.items()
+            if value is not None and Decimal(value) != 0
+        }
         for heading, group in (
             (T.CURRENT, r['current']),
             (T.PART_X, r['x']),
@@ -447,11 +475,13 @@ class ComparisonViewModel:
                 + ': '
                 + v.replace('.', ',')
                 for k, v in group.items()
-                if v is not None
+                if v is not None and (show_all or k in changed)
             ]
             if not any(v is not None for v in group.values()):
                 lines.append(T.MESSAGES['empty'])
-        if r['white_panel_base'] is not None:
+        if r['white_panel_base'] is not None and (
+            show_all or 'ScalingPercentPP' in changed
+        ):
             lines.append(
                 T.FIELD_LABELS['WhitePanelBase']
                 + ': '
@@ -459,7 +489,11 @@ class ComparisonViewModel:
             )
         lines += ['', T.AFTER_TOTALS]
         for key, value in r['resolved'].items():
-            if key.startswith('After') and value is not None:
+            if (
+                key.startswith('After')
+                and value is not None
+                and (show_all or key[5:] in changed)
+            ):
                 lines.append(
                     T.field_label(key[5:], r['input_scaling'], after=True)
                     + ': '
@@ -508,5 +542,126 @@ class ComparisonViewModel:
                     .replace('After' + field, label + ' nach Tausch')
                     .replace(field, label)
                 )
-            lines.append(message)
+            lines.append(
+                message.replace('Teil X', T.PART_X).replace('Teil Y', T.PART_Y)
+            )
+        return '\n'.join(lines)
+
+    def display(self):
+        """Complete accessible values; kept for diagnostics and compatibility."""
+        return self._full_display(show_all=True)
+
+    def details_display(self, show_all=False):
+        result = self.last_result or self.calculate()
+        undecided = result['engine'].get('Verdict') is None
+        full = self._full_display(show_all=show_all or undecided)
+        return full[full.index('\n' + T.CURRENT + '\n') + 1 :]
+
+    def compact_display(self):
+        r = self.last_result or self.calculate()
+        engine = r['engine']
+        scale = r['input_scaling']
+        lines = [T.VERDICTS.get(engine.get('Verdict'), T.INDETERMINATE)]
+        if (
+            engine.get('VerdictRatio') is not None
+            and engine.get('OutputStatus') == 'READY'
+        ):
+            lines.append(T.MESSAGES['ratio'] + engine['VerdictRatio'].replace('.', ','))
+        elif engine.get('RatioMin') is not None and engine.get('RatioMax') is not None:
+            lines.append(
+                T.MESSAGES['range']
+                + engine['RatioMin'].replace('.', ',')
+                + T.MESSAGES['to']
+                + engine['RatioMax'].replace('.', ',')
+            )
+        elif engine.get('Verdict') is not None:
+            lines.append(T.NO_SINGLE_RATIO)
+        lines += ['', T.CHANGED]
+        count = 0
+        for key, value in engine.get('Deltas', {}).items():
+            if value is not None and Decimal(value) != 0:
+                before = r['resolved'].get('Before' + key)
+                after = r['resolved'].get('After' + key)
+                label = (
+                    T.SCALE_NAMES.get(scale, 'Skalierung')
+                    if key == 'ScaleDirect'
+                    else T.FIELD_LABELS.get(key, key)
+                )
+                transition = (before or T.NO_CHOICE) + ' → ' + (after or T.NO_CHOICE)
+                lines.append(
+                    label
+                    + ': '
+                    + transition.replace('.', ',')
+                    + ' (Δ '
+                    + value.replace('.', ',')
+                    + ')'
+                )
+                count += 1
+        for key, value in r['part_deltas'].items():
+            if (
+                value is not None
+                and Decimal(value) != 0
+                and (
+                    engine.get('Deltas', {}).get(key) is None
+                    or Decimal(engine['Deltas'][key]) != Decimal(value)
+                )
+            ):
+                lines.append(
+                    T.field_label(key, scale, parts=True)
+                    + ': Δ '
+                    + value.replace('.', ',')
+                )
+                count += 1
+        if not count:
+            lines.append(T.NO_CHANGES)
+        if engine.get('Verdict') is None:
+            lines += ['', T.EXPLANATION_VALUES]
+            for key in self.fields():
+                label = T.field_label(key, scale)
+                raw = self.current.get(key)
+                before = r['current'].get(key)
+                if before is None and raw:
+                    before = raw + T.UNPARSED
+                elif before is not None:
+                    before = before.replace('.', ',')
+                after = r['resolved'].get('After' + key)
+                lines.append(
+                    label
+                    + ': '
+                    + (before or T.NO_CHOICE)
+                    + ' → '
+                    + (after or T.NO_CHOICE).replace('.', ',')
+                )
+                for heading, group, raws in (
+                    (T.PART_X, r['x'], self.item_x),
+                    (T.PART_Y, r['y'], self.item_y),
+                ):
+                    value = group.get(key)
+                    if value is None and raws.get(key):
+                        value = raws[key] + T.UNPARSED
+                    elif value is not None:
+                        value = value.replace('.', ',')
+                    lines.append(heading + ': ' + (value or T.NO_CHOICE))
+        if engine.get('OutputStatus') != 'READY':
+            lines.append(
+                T.STATUS_HINTS.get(
+                    engine.get('OutputStatus'), T.MESSAGES['status_unknown']
+                )
+            )
+        if engine.get('BaseProxyRatio') is not None:
+            lines.append(
+                T.MESSAGES['proxy'] + engine['BaseProxyRatio'].replace('.', ',')
+            )
+        if r['guide']:
+            lines.append(
+                T.GUIDE_WARNING
+                if any(
+                    row.get('SourceStatus') == 'NOT_VERIFIED_FOR_1_5'
+                    for row in r['guide']
+                )
+                else T.GUIDE_BASIS
+            )
+        # Explanations are never inside the collapsible value section.
+        full = self._full_display()
+        lines += ['', full[full.index('\n' + T.HINTS + '\n') + 1 :]]
         return '\n'.join(lines)

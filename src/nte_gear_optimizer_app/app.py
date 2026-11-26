@@ -24,7 +24,7 @@ from kivy.uix.label import Label
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.spinner import Spinner, SpinnerOption
 from kivy.uix.textinput import TextInput
-from .viewmodel import ComparisonViewModel
+from .viewmodel import ComparisonViewModel, numeric_hint
 from . import texts as T
 
 FONT = str(files('nte_gear_optimizer_app').joinpath('assets/Roboto-Regular.ttf'))
@@ -49,6 +49,9 @@ class ComparisonApp(App):
         self.white_box = None
         self.zero_buttons = []
         self.smoke_index = 0
+        self.details_expanded = False
+        self.show_all_values = False
+        self.input_hints = {}
 
     def label(self, text, size=17):
         label = Label(
@@ -128,7 +131,34 @@ class ComparisonApp(App):
         else:
             widget.bind(text=lambda _, value: self.input_changed(group, field, value))
         self.inputs[(group, field)] = widget
-        return widget
+        box = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(50))
+        hint = Label(
+            text='',
+            font_name='NTEText',
+            font_size=sp(14),
+            halign='left',
+            valign='middle',
+            size_hint_y=None,
+            height=0,
+            color=(1, 0.75, 0.35, 1),
+        )
+        hint.bind(width=lambda _, width: setattr(hint, 'text_size', (width, None)))
+
+        def resize(*_):
+            hint.height = max(dp(32), hint.texture_size[1] + dp(8)) if hint.text else 0
+            box.height = dp(50) + hint.height
+
+        def validate(_, value):
+            hint.text = numeric_hint(value) if group != 'level' else ''
+            resize()
+
+        hint.bind(texture_size=resize)
+        widget.bind(text=validate)
+        box.add_widget(widget)
+        box.add_widget(hint)
+        validate(widget, widget.text)
+        self.input_hints[(group, field)] = hint
+        return box
 
     def input_changed(self, group, field, value):
         self.vm.set_value(group, field, value)
@@ -138,7 +168,9 @@ class ComparisonApp(App):
     def update_white_visibility(self):
         if self.white_box is not None:
             needed = self.vm.needs_white_base()
-            self.white_box.height = dp(112) if needed else 0
+            self.white_box.height = (
+                max(dp(112), self.white_box.minimum_height) if needed else 0
+            )
             self.white_box.opacity = 1 if needed else 0
             self.white_box.disabled = not needed
 
@@ -162,9 +194,10 @@ class ComparisonApp(App):
         self.root_box.add_widget(footer)
         self.root_box.add_widget(
             self.label(
-                T.FONT_PROBE
-                if os.environ.get('NTE_TEST_MODE') == 'smoke'
-                else T.SESSION,
+                T.footer(
+                    os.environ.get('NTE_TEST_MODE') == 'smoke',
+                    os.environ.get('NTE_FONT_PROBE') == '1',
+                ),
                 14,
             )
         )
@@ -192,6 +225,7 @@ class ComparisonApp(App):
     def render(self):
         self.body.clear_widgets()
         self.inputs = {}
+        self.input_hints = {}
         self.white_box = None
         self.zero_buttons = []
         self.progress.text = T.STEPS[self.vm.step]
@@ -203,7 +237,29 @@ class ComparisonApp(App):
         elif self.vm.step in (1, 2):
             self.values_screen(parts=self.vm.step == 2)
         else:
-            self.body.add_widget(self.label(self.vm.display()))
+            self.body.add_widget(self.label(self.vm.compact_display()))
+            self.details_button = self.button(
+                T.DETAILS_CLOSE if self.details_expanded else T.DETAILS_OPEN,
+                self.toggle_details,
+            )
+            self.body.add_widget(self.details_button)
+            if self.details_expanded:
+                self.all_values_button = self.button(
+                    T.SHOW_CHANGED if self.show_all_values else T.SHOW_ALL,
+                    self.toggle_all_values,
+                )
+                self.body.add_widget(self.all_values_button)
+                self.body.add_widget(
+                    self.label(self.vm.details_display(self.show_all_values))
+                )
+
+    def toggle_details(self):
+        self.details_expanded = not self.details_expanded
+        self.render()
+
+    def toggle_all_values(self):
+        self.show_all_values = not self.show_all_values
+        self.render()
 
     def selection(self):
         self.spinner(
@@ -338,6 +394,11 @@ class ComparisonApp(App):
                     )
                 )
                 row = BoxLayout(spacing=dp(8), size_hint_y=None, height=dp(52))
+                row.bind(
+                    minimum_height=lambda row, height: setattr(
+                        row, 'height', max(dp(52), height)
+                    )
+                )
                 if parts:
                     row.add_widget(
                         self.text_input('x', field, self.vm.item_x.get(field))
@@ -352,6 +413,9 @@ class ComparisonApp(App):
                 self.body.add_widget(row)
         if parts and 'ScaleDirect' in self.vm.fields():
             self.white_box = BoxLayout(orientation='vertical', size_hint_y=None)
+            self.white_box.bind(
+                minimum_height=lambda *_: self.update_white_visibility()
+            )
             self.white_box.add_widget(self.label(T.FIELD_LABELS['WhitePanelBase']))
             self.white_box.add_widget(
                 self.text_input('white', 'WhitePanelBase', self.vm.white_panel_base)
@@ -412,7 +476,7 @@ class ComparisonApp(App):
                 json.dump(report, f, ensure_ascii=False, indent=2)
         Clock.schedule_once(lambda dt: self.capture_and_advance(out), 0.7)
 
-    def capture_and_advance(self, out):
+    def capture_view(self, out, name):
         if __import__('sys').platform == 'win32':
             # ANGLE's default-framebuffer readback can be black after swap.
             # Capture the actual isolated CI window, not an invented rendering.
@@ -425,22 +489,59 @@ class ComparisonApp(App):
             find.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
             handle = find(None, self.title)
             assert handle, 'CI application window not found'
-            ImageGrab.grab(window=handle).save(
-                out / ('step_' + str(self.smoke_index + 1) + '.png')
-            )
-            self.root_box.export_to_png(
-                str(out / ('canvas_step_' + str(self.smoke_index + 1) + '.png'))
-            )
+            ImageGrab.grab(window=handle).save(out / (name + '.png'))
+            self.root_box.export_to_png(str(out / ('canvas_' + name + '.png')))
         else:
-            Window.screenshot(
-                name=str(out / ('step_' + str(self.smoke_index + 1) + '.png'))
-            )
+            Window.screenshot(name=str(out / (name + '.png')))
+
+    def capture_and_advance(self, out):
+        self.capture_view(out, 'step_' + str(self.smoke_index + 1))
         if self.smoke_index == 3:
-            Clock.schedule_once(lambda dt: self.stop(), 0.4)
+            assert not self.details_expanded
+            self.details_button.dispatch('on_release')
+            assert self.details_expanded and not self.show_all_values
+            Clock.schedule_once(lambda dt: self.capture_details(out), 0.7)
             return
         self.next_button.trigger_action(duration=0)
         self.smoke_index += 1
         Clock.schedule_once(self.smoke, 0.7)
+
+    def capture_details(self, out):
+        self.capture_view(out, 'details_expanded')
+        self.all_values_button.dispatch('on_release')
+        assert self.show_all_values
+        self.details_button.dispatch('on_release')
+        assert not self.details_expanded
+        self.vm.step = 1
+        self.render()
+        self.inputs[('current', 'ScaleDirect')].text = '2.560'
+        assert self.input_hints[('current', 'ScaleDirect')].text == T.THOUSANDS_HINT
+        result = self.vm.calculate()
+        assert (
+            result['engine']['Verdict'] is None
+            and result['part_deltas']['ScaleDirect'] == '10'
+        )
+        assert T.THOUSANDS_HINT in self.vm.compact_display()
+        Clock.schedule_once(lambda dt: self.capture_input_help(out), 0.7)
+
+    def capture_input_help(self, out):
+        self.capture_view(out, 'input_help')
+        self.vm.set_value('current', 'ScaleDirect', '100')
+        self.vm.set_value('current', 'CritRatePP', '2.560')
+        assert self.vm.calculate()['engine']['Verdict'] == 'BETTER'
+        report = {
+            'details_toggle': 'PASS',
+            'show_all_toggle': 'PASS',
+            'thousands_field_hint': 'PASS',
+            'known_delta_retained': 'PASS',
+            'irrelevant_field_not_global_gate': 'PASS',
+            'normal_font_probe_hidden': T.footer(False, True) == T.SESSION,
+        }
+        with (out / 'followup_checks.json').open(
+            'x', encoding='utf-8', newline='\n'
+        ) as stream:
+            json.dump(report, stream, ensure_ascii=False, indent=2)
+        self.stop()
 
 
 def run():

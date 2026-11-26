@@ -2,7 +2,12 @@
 
 TITLE = 'NTE Gear Optimizer'
 SUBTITLE = 'Inoffizieller Wertevergleich · in Entwicklung'
-STEPS = ('1  Auswahl', '2  Aktuelle Werte', '3  Teil X und Teil Y', '4  Ergebnis')
+STEPS = (
+    '1  Auswahl',
+    '2  Aktuelle Werte',
+    '3  Aktuelles und neues Teil',
+    '4  Ergebnis',
+)
 ZERO = 'kein Bonus (0)'
 BACK = 'Zurück'
 NEXT = 'Weiter'
@@ -59,8 +64,8 @@ INDETERMINATE = 'Unentscheidbar – benötigte Angaben oder eindeutige Zweige fe
 MANUAL = 'Eigener Wertevergleich'
 NO_CHOICE = 'nicht angegeben'
 ALL_BRANCHES = 'alle belegten Zweige'
-CURRENT_NOTE = 'Gesamtwerte im Spiel mit Teil X. Werte werden nicht aus ungeprüften Levelkurven geschätzt.'
-SWAP_NOTE = 'Nur Werte der beiden Teile eintragen. Nach dem Tausch gilt: aktueller Gesamtwert + Y − X. Fehlend ist nicht 0.'
+CURRENT_NOTE = 'Gesamtwerte im Spiel mit aktuellem Teil. Werte werden nicht aus ungeprüften Levelkurven geschätzt.'
+SWAP_NOTE = 'Nur Werte der beiden Teile eintragen. Nach dem Tausch gilt: aktueller Gesamtwert + neues Teil − aktuelles Teil. Fehlend ist nicht 0.'
 GUIDE_WARNING = 'Guide 1.4: für 1.5 nicht geprüft'
 GUIDE_BASIS = 'Zielbasis nicht ausreichend belegt; Richtwert, keine Rechenvorgabe.'
 ARK_WARNING = 'Ark-Werte unter Lv80 werden nicht geschätzt. Bereits enthaltene Boni nicht doppelt eingeben.'
@@ -69,14 +74,14 @@ NOT_DPS = 'Statischer relativer Vergleich, keine Kampf- oder DPS-Simulation.'
 ASSUMPTION = 'Eigene Profilangaben sind Annahmen für diesen Vergleich.'
 NO_RESULT = 'Noch kein Ergebnis berechnet.'
 KNOWN = 'Bekannte Werte und Änderungen'
-CURRENT = 'Aktuell (mit X)'
-PART_X = 'Teil X'
-PART_Y = 'Teil Y'
-DIFFERENCE = 'Änderung am Teil (Y − X)'
+CURRENT = 'Aktuelle Werte (mit aktuellem Teil)'
+PART_X = 'Aktuelles Teil'
+PART_Y = 'Neues Teil'
+DIFFERENCE = 'Änderung am Teil (neu − aktuell)'
 TOTAL_DIFFERENCE = 'Änderung am Gesamtwert'
 GUIDE = 'Guide-Richtwerte und Herkunft'
 HINTS = 'Hinweise'
-LOGO = 'X / Y'
+LOGO = 'Aktuelles Teil ↔ Neues Teil'
 FONT_PROBE = 'Ä Ö Ü ä ö ü ß ± √'
 
 UI = {
@@ -95,7 +100,7 @@ UI = {
     'break': 'Bruch relevant?',
     'cycle': 'Zyklusreaktion',
     'missing_profile': 'Für eine Rechnung Leistungstyp und Skalierung festlegen. Vorhandene Angaben bleiben beim Zurückgehen erhalten.',
-    'parts_hint': 'Linkes Feld: Teil X. Rechtes Feld: Teil Y.',
+    'parts_hint': 'Linkes Feld: aktuelles Teil. Rechtes Feld: neues Teil.',
 }
 FIELD_LABELS.update(
     {
@@ -156,7 +161,7 @@ def field_label(field, scale, parts=False, after=False):
             else (
                 'Gesamt-'
                 + SCALE_NAMES.get(scale, 'Skalierung')
-                + (' mit Teil Y' if after else ' mit Teil X')
+                + (' mit neuem Teil' if after else ' mit aktuellem Teil')
             )
         )
     if field == 'ScalingPercentPP':
@@ -179,3 +184,22 @@ MESSAGES.update(
         'proxy': 'Näherungswert ohne festen Anteil (kein Urteil): ',
     }
 )
+
+
+THOUSANDS_HINT = (
+    'Bitte ohne Tausenderpunkt eingeben, z. B. 2560 – oder Komma für Nachkommastellen'
+)
+DECIMAL_HINT = 'Bitte Komma für Nachkommastellen verwenden, z. B. 1,5.'
+DETAILS_OPEN = 'Einzelwerte anzeigen'
+DETAILS_CLOSE = 'Einzelwerte einklappen'
+SHOW_ALL = 'Auch Nullen und unveränderte Werte anzeigen'
+SHOW_CHANGED = 'Nur geänderte Einzelwerte anzeigen'
+CHANGED = 'Geänderte Werte'
+NO_CHANGES = 'Keine bezifferte Änderung vorhanden.'
+EXPLANATION_VALUES = 'Werte zur Klärung des unbestimmten Ergebnisses'
+UNPARSED = ' (nicht als Zahl übernommen)'
+NO_SINGLE_RATIO = 'Kein einzelnes Verhältnis für diese gemeinsame Zweigentscheidung.'
+
+
+def footer(test_mode=False, font_probe=False):
+    return FONT_PROBE if test_mode and font_probe else SESSION

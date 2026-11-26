@@ -16,9 +16,10 @@ env = {
     'NTE_TEST_MODE': 'smoke',
     'NTE_TEST_OUTPUT': str(out),
     'KIVY_NO_ARGS': '1',
-    'KIVY_NO_CONSOLELOG': '0',
     'KIVY_WINDOW': 'sdl2',
     'KIVY_AUDIO': 'mock',
+    'KIVY_HOME': str(out / 'kivy_home'),
+    'LIBGL_ALWAYS_SOFTWARE': '1',
 }
 command = [str(Path(args.exe).resolve())] if args.exe else [sys.executable, 'main.py']
 result = subprocess.run(
@@ -34,7 +35,11 @@ with (out / 'app_stdout.txt').open('x', encoding='utf-8', newline='\n') as targe
     target.write(result.stdout)
 with (out / 'app_stderr.txt').open('x', encoding='utf-8', newline='\n') as target:
     target.write(result.stderr)
-assert result.returncode == 0, (result.returncode, result.stderr[-4000:])
+assert result.returncode == 0, (
+    result.returncode,
+    result.stderr[-4000:],
+    result.stdout[-4000:],
+)
 report = json.loads((out / 'smoke_result.json').read_text(encoding='utf-8'))
 assert report['result']['engine']['VerdictRatio'] == '1.100000000'
 assert report['result']['engine']['Verdict'] == 'BETTER'
@@ -47,7 +52,7 @@ with (out / 'files.json').open('x', encoding='utf-8', newline='\n') as target:
         {
             p.name: hashlib.sha256(p.read_bytes()).hexdigest()
             for p in out.iterdir()
-            if p.name != 'files.json'
+            if p.name != 'files.json' and p.is_file()
         },
         target,
         indent=2,

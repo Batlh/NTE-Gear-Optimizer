@@ -116,3 +116,33 @@ def test_external_block_clears_children_but_known_unknown_scenarios_keep_contrac
     r = compare(x, P)
     assert r['RatioMin'] == '0.75' and r['RatioMax'] == '1.5'
     # OPB-09's valid uncertainty interval is evidence, not a stale late-block result.
+
+
+@pytest.mark.parametrize(
+    'ruleset,layout',
+    [
+        ('UNKNOWN', None),
+        (
+            'CURRENT',
+            Issue(
+                'ERR_LAYOUT_BLOCKED_CELL',
+                'BUILD_INVALID_NO_CHANNEL_OUTPUT',
+                'Row',
+                'prüfen',
+            ),
+        ),
+    ],
+)
+def test_context_block_also_removes_an_earlier_conditional_proxy(ruleset, layout):
+    r = compare(
+        values(),
+        P,
+        conditional_factors=[
+            {'BeforeFactor': '1', 'AfterFactor': '1'},
+            {'BeforeFactor': '2', 'AfterFactor': '1'},
+        ],
+        ruleset=ruleset,
+        layout_issue=layout,
+    )
+    assert r['BaseProxyRatio'] is None and r['AffineThresholdRatio'] is None
+    assert r['Deltas']['ScaleDirect'] == '10'

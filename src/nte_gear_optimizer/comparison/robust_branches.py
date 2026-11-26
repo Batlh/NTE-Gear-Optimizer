@@ -116,6 +116,7 @@ def evaluate_profile(
     ):
         result = invalidate_decision(
             result,
+            preserve_proxy=True,
             BaseProxyRatio=result.get('RawRatio'),
             OutputStatus='NICHT_ENTSCHEIDBAR',
         )

@@ -13,10 +13,15 @@ DECISION_FIELDS = (
 )
 
 
-def invalidate_decision(result, *, clear_nested=False, **metadata):
+def invalidate_decision(
+    result, *, clear_nested=False, preserve_proxy=False, **metadata
+):
     out = dict(result)
     out.update({field: None for field in DECISION_FIELDS})
     out['DroveRecommendation'] = False
+    if not preserve_proxy:
+        out['BaseProxyRatio'] = None
+        out['AffineThresholdRatio'] = None
     if 'GuideReferenceBlock' in out:
         out['GuideReferenceBlock'] = [
             dict(row, DroveRecommendation=False) for row in out['GuideReferenceBlock']
@@ -26,6 +31,7 @@ def invalidate_decision(result, *, clear_nested=False, **metadata):
             invalidate_decision(
                 row,
                 clear_nested=True,
+                preserve_proxy=preserve_proxy,
                 OutputStatus=metadata.get('OutputStatus', row.get('OutputStatus')),
             )
             for row in out['BranchEvaluations']

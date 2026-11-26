@@ -39,7 +39,7 @@ def apply_condition(result, conditional_factors):
     hi = out.get('RatioMax') or out.get('RawRatio')
     if lo is None or hi is None:
         return invalidate_decision(
-            out, OutputStatus='INDETERMINATE_CONDITIONAL_COMPONENT'
+            out, preserve_proxy=True, OutputStatus='INDETERMINATE_CONDITIONAL_COMPONENT'
         )
     candidates = []
     try:
@@ -60,7 +60,9 @@ def apply_condition(result, conditional_factors):
         )
         if len(verdicts) != 1:
             out = invalidate_decision(
-                out, OutputStatus='INDETERMINATE_CONDITIONAL_COMPONENT'
+                out,
+                preserve_proxy=True,
+                OutputStatus='INDETERMINATE_CONDITIONAL_COMPONENT',
             )
         else:
             out['Verdict'] = next(iter(verdicts))
@@ -68,6 +70,7 @@ def apply_condition(result, conditional_factors):
         out = invalidate_decision(
             out,
             BaseProxyRatio=out.get('RawRatio'),
+            preserve_proxy=True,
             OutputStatus='INDETERMINATE_CONDITIONAL_COMPONENT',
             Diagnostics=[str(exc)],
         )
@@ -189,6 +192,7 @@ def compare(
                 out = invalidate_decision(
                     out,
                     clear_nested=True,
+                    preserve_proxy=True,
                     OutputStatus='INDETERMINATE_CONDITIONAL_COMPONENT',
                 )
         else:

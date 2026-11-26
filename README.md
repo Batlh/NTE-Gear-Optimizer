@@ -1,12 +1,37 @@
 # NTE Gear Optimizer
 
-In Entwicklung / in development. Gemeinsamer Python-Kern, noch keine OberflÃ¤che.
-Inoffiziell, nicht mit Hotta Studio oder Perfect World verbunden, von ihnen
-nicht betrieben oder unterstÃ¼tzt. Spielnamen und Marken gehÃ¶ren ihren Inhabern.
+## English
 
-Own code: MIT (LICENSE). Game and guide data are separately attributed in
-data/SOURCES.md and are not relicensed by the code license.
+In development. This is an unofficial fan tool, not affiliated with, operated
+by or supported by Hotta Studio or Perfect World. Game names and trademarks
+belong to their respective owners.
 
-CPython CI: 3.13.17 and 3.14.10 (line decision remains open). Tests: `python -m pip install -e ".[dev]"`, then `python -m pytest`.
-Browser core: Pyodide 0.29.5, Python 3.13.2; no UI or runtime network adapter.
-The v0.28 comparison port is Phase 1B, not implemented in this branch.
+The MIT license (LICENSE) applies only to our own code. Game values and guide
+recommendations have separate provenance: see data/SOURCES.md. They are not
+relicensed under MIT.
+
+Phase 1A provides a shared Python core, not a user interface. The v0.28 comparison
+logic will be ported in Phase 1B. CPython CI tests 3.13.17 and 3.14.10; web-core
+tests Pyodide 0.29.5 and 314.0.8. The Python line for Phase 2 remains undecided.
+
+To run tests: `python -m pip install -r requirements-dev.txt`, then
+`python -m pytest`. To check all tracked text files: `python tools/check_encoding.py`.
+
+## Deutsch
+
+In Entwicklung. Dies ist ein inoffizielles Fan-Werkzeug. Es ist nicht mit Hotta
+Studio oder Perfect World verbunden und wird von ihnen weder betrieben noch
+unterstützt. Spielnamen und Marken gehören ihren jeweiligen Rechteinhabern.
+
+Die MIT-Lizenz (LICENSE) gilt nur für unseren eigenen Code. Spielwerte und
+Guide-Empfehlungen haben eine eigene Herkunft: siehe data/SOURCES.md. Sie
+werden nicht unter der MIT-Lizenz neu lizenziert.
+
+Phase 1A liefert einen gemeinsamen Python-Kern, noch keine Oberfläche. Die
+Vergleichslogik aus v0.28 wird in Phase 1B übertragen. Die CPython-CI prüft
+3.13.17 und 3.14.10; web-core prüft Pyodide 0.29.5 und 314.0.8. Die Python-Linie
+für Phase 2 ist noch nicht entschieden.
+
+Tests ausführen: `python -m pip install -r requirements-dev.txt`, danach
+`python -m pytest`. Alle versionierten Textdateien prüfen:
+`python tools/check_encoding.py`.

@@ -160,8 +160,21 @@ try:
                 == digest
             ), relative
     adb('install', '-r', str(apk))
-    adb('shell', 'ime', 'enable', 'com.android.inputmethod.latin/.LatinIME')
-    adb('shell', 'ime', 'set', 'com.android.inputmethod.latin/.LatinIME')
+    installed_imes = adb('shell', 'ime', 'list', '-s').splitlines()
+    latin_imes = [name.strip() for name in installed_imes if 'latin' in name.lower()]
+    assert latin_imes, 'No installed Latin soft keyboard in emulator image'
+    default_ime = adb(
+        'shell', 'settings', 'get', 'secure', 'default_input_method'
+    ).strip()
+    keyboard = default_ime if default_ime in latin_imes else latin_imes[0]
+    (out / 'keyboard_setup.json').write_text(
+        json.dumps({'installed': installed_imes, 'selected': keyboard}, indent=2),
+        encoding='utf-8',
+        newline='\n',
+    )
+    adb('shell', 'ime', 'enable', keyboard)
+    adb('shell', 'ime', 'set', keyboard)
+    adb('shell', 'settings', 'put', 'secure', 'show_ime_with_hard_keyboard', '1')
     adb('logcat', '-c')
     adb(
         'shell',

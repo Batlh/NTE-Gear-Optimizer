@@ -97,6 +97,10 @@ def item_stats(rows, *, kind, level, stat_units, permitted_main_ids, limits):
     main_ids=[r.get('StatID') for r in mains]
     if kind=='MODULE' and set(main_ids)!={'STAT_ATK','STAT_HP'}:return {'Status':'FAIL','Field':'MainStats'}
     if kind=='CARTRIDGE' and main_ids[0] not in permitted_main_ids:return {'Status':'FAIL','Field':'MainStatID'}
+    expected_slots={slot for slot in range(1,5) if level>=5*slot}
+    present_slots={r.get('Slot') for r in rows if r.get('Role')=='SUB'}
+    if not expected_slots.issubset(present_slots):return {'Status':'UNKNOWN','Field':'SubStats'}
+    if kind=='CARTRIDGE' and mains[0].get('Slot')!=1:return {'Status':'FAIL','Field':'MainStats'}
     seen=set();unknown=False
     for row in rows:
         role,slot,stat=row.get('Role'),row.get('Slot'),row.get('StatID')

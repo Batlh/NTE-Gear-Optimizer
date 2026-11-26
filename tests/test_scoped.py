@@ -52,3 +52,9 @@ def test_item_main_pairs_unit_source_point_and_locked_substat():
     assert r['Status']=='PASS' and r['ActiveSubstats']==[]
     assert item_stats(rows,**{**kwargs,'limits':{}})['Status']=='UNKNOWN'
     assert item_stats(rows[:1],**kwargs)['Status']=='FAIL'
+
+
+def test_missing_unlocked_slot_cannot_pass_item_validation():
+    rows=[{'Role':'MAIN','Slot':1,'StatID':'STAT_ATK','Unit':'FLAT','Value':'100'}]
+    params=dict(kind='CARTRIDGE',level=5,stat_units={'STAT_ATK':'FLAT'},permitted_main_ids={'STAT_ATK'},limits={('MAIN',1,'STAT_ATK'):('0','100')})
+    assert item_stats(rows,**params)=={'Status':'UNKNOWN','Field':'SubStats'}

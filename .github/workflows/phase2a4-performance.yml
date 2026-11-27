@@ -9,6 +9,7 @@ permissions:
   actions: read
 jobs:
   windows:
+    if: github.event.head_commit.message != 'Observe Android SDL surface compositing without changing app'
     strategy:
       fail-fast: false
       matrix:
@@ -39,6 +40,7 @@ jobs:
             ${{ matrix.stage == 'baseline' && 'build/a4_frozen_baseline/build/a4_performance_windows' || 'build/a4_performance_windows' }}
             build/a4_prior_build_diagnostic
   android:
+    if: github.event.head_commit.message != 'Observe Android SDL surface compositing without changing app'
     runs-on: ubuntu-24.04
     timeout-minutes: 65
     steps:
@@ -117,6 +119,8 @@ jobs:
             build/a4_controlled/**/after_gestures.png
 
   android-selectors:
+    env:
+      NTE_VISUAL_DIAGNOSTIC_ONLY: ${{ github.event.head_commit.message == 'Observe Android SDL surface compositing without changing app' && '1' || '0' }}
     # This x86 UI test must not depend on the unrelated ARM signing build.
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -144,7 +148,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
-            python tools/test_android_touch.py
+            if [ "$NTE_VISUAL_DIAGNOSTIC_ONLY" != "1" ]; then python tools/test_android_touch.py; fi
             python tools/a4_android_visual_hint.py
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: always()

@@ -437,10 +437,40 @@ class FieldProbe(ComparisonApp):
         self.capture_view(out, 'design_input_contrast')
         from PIL import Image
 
-        # Client framebuffer avoids OS title-bar/border coordinate offsets.
-        Window.screenshot(name=str(out / 'design_input_pixels.png'))
-        shot = max(out.glob('design_input_pixels*.png'))
-        image = Image.open(shot).convert('RGB')
+        if sys.platform == 'win32':
+            # ANGLE's glReadPixels produces an all-black screenshot in this
+            # Windows CI setup. Capture the actual OS client area instead,
+            # using explicit client/screen geometry (no title-bar guess).
+            from PIL import ImageGrab
+            from ctypes import wintypes
+
+            api = ctypes.windll.user32
+            api.FindWindowW.restype = wintypes.HWND
+            api.GetForegroundWindow.restype = wintypes.HWND
+            handle = api.FindWindowW(None, ComparisonApp.title)
+            assert handle and api.GetForegroundWindow() == handle
+            api.GetClientRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+            api.ClientToScreen.argtypes = [
+                wintypes.HWND,
+                ctypes.POINTER(wintypes.POINT),
+            ]
+            client = wintypes.RECT()
+            origin = wintypes.POINT(0, 0)
+            assert api.GetClientRect(handle, ctypes.byref(client))
+            assert api.ClientToScreen(handle, ctypes.byref(origin))
+            image = ImageGrab.grab(
+                bbox=(
+                    origin.x,
+                    origin.y,
+                    origin.x + client.right,
+                    origin.y + client.bottom,
+                )
+            ).convert('RGB')
+            image.save(out / 'design_input_client_pixels.png')
+        else:
+            Window.screenshot(name=str(out / 'design_input_pixels.png'))
+            shot = max(out.glob('design_input_pixels*.png'))
+            image = Image.open(shot).convert('RGB')
         x, y = left.to_window(left.x, left.y)
         sx, sy = image.width / Window.width, image.height / Window.height
         region = image.crop(

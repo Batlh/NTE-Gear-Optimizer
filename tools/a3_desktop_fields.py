@@ -173,6 +173,24 @@ class FieldProbe(ComparisonApp):
 
         Clock.schedule_interval(press_after_observed_motion, 0.01)
 
+    def position_for_hold(self, widget):
+        native_button(widget, None)
+        deadline = time.monotonic() + 2.5
+        while True:
+            x, y = widget.to_window(widget.center_x, widget.center_y)
+            actual = Window.mouse_pos
+            if abs(actual[0] - x) <= 2 and abs(actual[1] - y) <= 2:
+                self.evidence.append(
+                    {'hold_pointer_ready': list(actual), 'requested': [x, y]}
+                )
+                return
+            assert time.monotonic() < deadline, (
+                'SDL pointer not ready for hold',
+                list(actual),
+                [x, y],
+            )
+            yield 0.01
+
     def wait_click(self, predicate, description):
         # The CI VM can stall an SDL frame on disk I/O. A fixed sleep expired
         # before motion_end in run46009343844. Wait for the actual OS release
@@ -420,8 +438,7 @@ class FieldProbe(ComparisonApp):
         self.scroll.scroll_to(zero, padding=30)
         yield 0.5
         boundary = self.debug.journal.seq
-        native_button(zero, None)
-        yield 0.15
+        yield from self.position_for_hold(zero)
         native_button(zero, True)
         yield 0.04
         assert zero.state == 'down', 'No optical down feedback while held'
@@ -536,8 +553,7 @@ class FieldProbe(ComparisonApp):
         # Footer primary button is outside the ScrollView preview: its own
         # pressed canvas must visibly change on the actual OS down event.
         normal_fill = tuple(self.next_button.fill_color.rgba)
-        native_button(self.next_button, None)
-        yield 0.15
+        yield from self.position_for_hold(self.next_button)
         native_button(self.next_button, True)
         yield 0.08
         assert self.next_button.state == 'down'

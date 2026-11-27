@@ -276,6 +276,8 @@ class ComparisonApp(App):
     def observe_touch_lifetime(self, window, kind, touch):
         if kind == 'begin':
             self.active_touches.add(touch.uid)
+        elif kind == 'update' and self.keyboard_viewport:
+            self.keyboard_viewport.user_move()
         elif kind == 'end':
             self.active_touches.discard(touch.uid)
         return False

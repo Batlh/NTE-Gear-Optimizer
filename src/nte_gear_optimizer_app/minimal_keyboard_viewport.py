@@ -30,6 +30,7 @@ class MinimalKeyboardViewport:
         )
         self.gap = gap
         self.target = None
+        self.manual_target = None
         self.adjusted = False
         self.failed = False
         self.padded = []
@@ -41,8 +42,16 @@ class MinimalKeyboardViewport:
             body.padding = [0, 0, 0, 0]
         self.padded.clear()
         self.target = None
+        self.manual_target = None
         self.adjusted = False
         self.last_measurement = None
+
+    def user_move(self):
+        # A user must be able to scroll away from the old focused field to
+        # reach the next one while the shared IME remains open. Do not let
+        # the automatic correction pull the old field back after release.
+        if self.target is not None:
+            self.manual_target = self.target
 
     def field_bottom(self, widget, state):
         x, y = widget.to_window(*widget.pos)
@@ -73,10 +82,13 @@ class MinimalKeyboardViewport:
             if not state['visible']:
                 self.reset()
                 return
+            if widget is self.manual_target:
+                return
             if getattr(self.app, 'active_touches', None):
                 return
             if self.target is not widget:
                 self.target = widget
+                self.manual_target = None
                 self.adjusted = False
             _, _, _, surface_height = state['surface_rect']
             scale = self.window.height / surface_height

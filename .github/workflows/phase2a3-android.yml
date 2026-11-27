@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [fields, update_static]
+        mode: [fields, update_static, export_only]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -30,13 +30,13 @@ jobs:
       - if: matrix.mode == 'update_static'
         run: python tools/a3_verify_update_static.py
       - name: Enable isolated CI KVM
-        if: matrix.mode == 'fields'
+        if: matrix.mode != 'update_static'
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
-        if: matrix.mode == 'fields'
+        if: matrix.mode != 'update_static'
         with:
           api-level: 33
           target: google_apis
@@ -45,7 +45,7 @@ jobs:
           force-avd-creation: true
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: python tools/a3_android_fields.py
+          script: python tools/${{ matrix.mode == 'export_only' && 'a3_android_export.py' || 'a3_android_fields.py' }}
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: always()
         with:

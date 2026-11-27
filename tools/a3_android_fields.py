@@ -304,7 +304,12 @@ try:
 except Exception:
     result = {'status': 'FAIL', 'stacktrace': traceback.format_exc()}
 finally:
-    logs = ui.app_logs()
+    ui.collect_private_debug()
+    try:
+        logs = ui.app_logs()
+    except AssertionError as error:
+        result['postmortem_log_note'] = str(error)
+        logs = ui.adb('logcat', '-d')
     (ui.out / 'logcat.txt').write_text(logs, encoding='utf-8', newline='\n')
     events = [
         json.loads(line.split('NTE_A3_EVENT=', 1)[1])

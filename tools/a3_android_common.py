@@ -163,3 +163,41 @@ def field(key, value, name):
     adb('shell', 'input', 'text', value)
     time.sleep(2)
     return record(name)
+
+
+def collect_private_debug():
+    # Read only the tested app's own diagnostic files. Keep the actual
+    # caught JNI cause even when share/Downloads is the operation failing.
+    target = out / 'private_debug'
+    target.mkdir(exist_ok=True)
+    package = 'io.github.batlh.nte_gear_optimizer'
+    for directory in ['files/nte_debug/logs', 'cache/debug_reports']:
+        listing = subprocess.run(
+            ['adb', 'shell', 'run-as', package, 'ls', directory],
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+        )
+        if listing.returncode:
+            continue
+        for name in listing.stdout.splitlines():
+            name = name.strip()
+            allowed = name in {
+                'events_0.jsonl',
+                'events_1.jsonl',
+                'events_2.jsonl',
+            } or (
+                name.startswith('NTE_Debugbericht_')
+                and name.endswith('.txt')
+                and '/' not in name
+                and chr(92) not in name
+            )
+            if not allowed:
+                continue
+            result = subprocess.run(
+                ['adb', 'exec-out', 'run-as', package, 'cat', directory + '/' + name],
+                capture_output=True,
+            )
+            if result.returncode == 0:
+                (target / name).write_bytes(result.stdout)

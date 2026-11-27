@@ -1,5 +1,6 @@
 name: phase2a4-performance
 on:
+  workflow_dispatch:
   push:
     branches: [v029-phase2a]
     paths: [src/nte_gear_optimizer_app/**, tools/a4_*.py, .github/workflows/phase2a4-performance.yml]
@@ -73,6 +74,8 @@ jobs:
             build/a3_probe_apk.json
 
   android-controlled:
+    # Frozen A/B diagnostic; deliberately opt-in after this initial run.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:

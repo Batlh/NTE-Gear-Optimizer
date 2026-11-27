@@ -75,14 +75,17 @@ def prepare():
             'original_spec': spec,
             'test_driver_commit': os.environ['GITHUB_SHA'],
         }
-    core = lambda row: {
-        k: v
-        for k, v in row['metadata']['files'].items()
-        if k.startswith('nte_gear_optimizer/')
-        or k == 'nte_gear_optimizer_app/viewmodel.py'
-        or '/assets/icons/' in k
-        or k.endswith('/assets/catalog.json')
-    }
+
+    def core(row):
+        return {
+            k: v
+            for k, v in row['metadata']['files'].items()
+            if k.startswith('nte_gear_optimizer/')
+            or k == 'nte_gear_optimizer_app/viewmodel.py'
+            or '/assets/icons/' in k
+            or k.endswith('/assets/catalog.json')
+        }
+
     assert core(rows['A']) == core(rows['B'])
     assert (
         rows['A']['metadata']['build_inputs'] == rows['B']['metadata']['build_inputs']

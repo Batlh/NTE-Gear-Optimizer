@@ -52,26 +52,43 @@ class GeometryApp(App):
         for widget in self.samples:
             widget.size = (dp(260), dp(52))
             yield 0.2
-            geometry = tuple(widget.edge.rounded_rectangle)
-            fill_pos = tuple(widget.fill.pos)
+            geometry = (
+                widget.edge.source,
+                tuple(widget.edge.border),
+                tuple(widget.edge.display_border),
+                widget.edge.texture.id,
+            )
+            fill_source = widget.fill.source
             for x, y in ((10, 20), (37, 91), (401, -533), (0, 0)):
                 widget.pos = (x, y)
                 yield 0.1
-                assert tuple(widget.edge.rounded_rectangle) == geometry
-                assert tuple(widget.fill.pos) == fill_pos == (0, 0)
+                assert (
+                    widget.edge.source,
+                    tuple(widget.edge.border),
+                    tuple(widget.edge.display_border),
+                    widget.edge.texture.id,
+                ) == geometry
+                assert tuple(widget.fill.pos) == tuple(widget.edge.pos) == (x, y)
+                assert widget.fill.source == fill_source
                 assert (
                     widget.decoration_position.x == x
                     and widget.decoration_position.y == y
                 )
             widget.width += dp(20)
             yield 0.1
-            assert tuple(widget.edge.rounded_rectangle) != geometry
+            assert (
+                widget.edge.source,
+                tuple(widget.edge.border),
+                tuple(widget.edge.display_border),
+                widget.edge.texture.id,
+            ) == geometry
+            assert tuple(widget.edge.size) == tuple(widget.size)
             assert tuple(widget.fill.size) == tuple(widget.size)
             rows.append(
                 {
                     'widget': type(widget).__name__,
                     'position_changes': 4,
-                    'cached_outline': True,
+                    'shared_texture_and_slices': True,
                     'resize_updates': True,
                 }
             )
@@ -88,7 +105,7 @@ class GeometryApp(App):
             encoding='utf-8',
             newline='\n',
         )
-        print('Cached decoration translation and resize graphics checks PASS')
+        print('Nine-slice texture reuse and native geometry checks PASS')
 
 
 app = GeometryApp()

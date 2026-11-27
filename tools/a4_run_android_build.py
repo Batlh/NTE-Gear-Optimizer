@@ -10,6 +10,11 @@ import sys
 
 
 def safe_line(line):
+    # Remote terminal controls are data only: remove them before artifact output.
+    line = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', line)
+    line = ''.join(
+        ch for ch in line if ch in '\n\t' or ord(ch) >= 32 and ord(ch) != 127
+    )
     if re.search(
         r'(?i)(token|password|secret|authorization|credential|storepass|keypass)', line
     ):

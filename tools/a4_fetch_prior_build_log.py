@@ -12,7 +12,12 @@ out = Path('build/a4_prior_build_diagnostic')
 out.mkdir(parents=True, exist_ok=False)
 job_id = 140727814112
 process = subprocess.Popen(
-    ['gh', 'api', f'repos/Batlh/NTE-Gear-Optimizer/actions/jobs/{job_id}/logs'],
+    [
+        'gh',
+        'api',
+        f'repos/Batlh/NTE-Gear-Optimizer/actions/jobs/{job_id}/logs',
+        '--allow-escape-sequences',
+    ],
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
     text=True,

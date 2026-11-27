@@ -53,15 +53,35 @@ def private_log_directory(platform, android_files=None):
 
 
 def private_text(text):
-    # Retain frame filename/function/line and the full exception chain, never
-    # external absolute path prefixes or user-directory names. Game input has
-    # no valid path syntax; apply the same rule to pasted input and OSErrors.
-    value = str(text)
-    value = re.sub(r'(?i)[a-z]:[\\/][^\s"\'<>]+', '<external-path>', value)
-    value = re.sub(
-        r'(?<![\w:])/(?:[^/\s"\'<>]+/)+[^\s"\'<>]*', '<external-path>', value
-    )
-    return value
+    # Public guide URLs are not filesystem paths. Mask paths only outside
+    # complete http(s) URLs; retain the original source evidence unchanged.
+    chunks = re.split(r'((?i:https?)://[^\s"\'<>]+)', str(text))
+    for index in range(0, len(chunks), 2):
+        part = chunks[index]
+        part = re.sub(r'\\\\[^\s"\'<>]+', '<external-path>', part)
+        part = re.sub(r'(?i)[a-z]:[\\/][^\s"\'<>]+', '<external-path>', part)
+        part = re.sub(
+            r'(?<![\w:])/(?:[^/\s"\'<>]+/)+[^\s"\'<>]*', '<external-path>', part
+        )
+        chunks[index] = part
+    return ''.join(chunks)
+
+
+def private_traceback(error):
+    frames = traceback.TracebackException.from_exception(error)
+
+    def private_frames(node):
+        if node is None:
+            return
+        for frame in node.stack:
+            frame.filename = Path(frame.filename.replace(chr(92), '/')).name
+        private_frames(node.__cause__)
+        private_frames(node.__context__)
+        for child in getattr(node, 'exceptions', None) or []:
+            private_frames(child)
+
+    private_frames(frames)
+    return private_text(''.join(frames.format()))
 
 
 def clean(value):
@@ -91,9 +111,41 @@ class DebugJournal:
         self.pending = {}
         self.recent = deque(maxlen=200)
         self.failed = False
+        self.storage_errors = {}
         self.last_sync = float('-inf')
         self._begin_session()
         self.emit('session_start')
+
+    def _storage_error(self, error, operation):
+        # Disk may be unavailable while the in-memory report still works.
+        # Do not recurse into emit() or let diagnostic failure gate the app.
+        self.failed = True
+        try:
+            signature = (type(error).__name__, private_text(str(error)))
+            with self.lock:
+                if self.storage_errors.get(operation) == signature:
+                    return
+                self.storage_errors[operation] = signature
+                self.seq += 1
+                self.recent.append(
+                    clean(
+                        {
+                            'session': self.session,
+                            'seq': self.seq,
+                            'ms': round((self.clock() - self.start) * 1000),
+                            'utc': datetime.now(timezone.utc).isoformat(
+                                timespec='milliseconds'
+                            ),
+                            'event': 'journal_storage_error',
+                            'operation': operation,
+                            'exception_type': type(error).__name__,
+                            'stacktrace': private_traceback(error),
+                            'memory_only': True,
+                        }
+                    )
+                )
+        except Exception:
+            pass
 
     def _begin_session(self):
         try:
@@ -115,8 +167,8 @@ class DebugJournal:
                     previous.write(b''.join(reversed(selected)))
                 for index in range(self.slots - 1):
                     self._file(index).unlink(missing_ok=True)
-        except Exception:
-            self.failed = True
+        except Exception as error:
+            self._storage_error(error, 'begin_session')
 
     def _file(self, index):
         return self.directory / f'events_{index}.jsonl'
@@ -177,8 +229,8 @@ class DebugJournal:
                         os.fsync(f.fileno())
                         self.last_sync = self.clock()
                 return row
-        except Exception:
-            self.failed = True
+        except Exception as error:
+            self._storage_error(error, 'write')
             return None
 
     def input(self, field, raw, normalized, hint):
@@ -193,8 +245,8 @@ class DebugJournal:
                         'hint': hint,
                     },
                 )
-        except Exception:
-            self.failed = True
+        except Exception as error:
+            self._storage_error(error, 'queue_input')
 
     def flush_inputs(self, field=None, *, force=False):
         try:
@@ -205,29 +257,15 @@ class DebugJournal:
                     ):
                         self.pending.pop(key)
                         self.emit('input', **data)
-        except Exception:
-            self.failed = True
+        except Exception as error:
+            self._storage_error(error, 'flush_inputs')
 
     def exception(self, error, *, caught):
-        # TracebackException.format keeps chained exceptions and all frames.
-        frames = traceback.TracebackException.from_exception(error)
-
-        def private_frames(node):
-            if node is None:
-                return
-            for frame in node.stack:
-                frame.filename = Path(frame.filename.replace('\\', '/')).name
-            private_frames(node.__cause__)
-            private_frames(node.__context__)
-            for child in getattr(node, 'exceptions', None) or []:
-                private_frames(child)
-
-        private_frames(frames)
         self.emit(
             'exception',
             caught=caught,
             exception_type=type(error).__name__,
-            stacktrace=''.join(frames.format()),
+            stacktrace=private_traceback(error),
         )
 
     def events(self):
@@ -240,9 +278,11 @@ class DebugJournal:
                         for line in path.read_text(encoding='utf-8').splitlines():
                             try:
                                 rows.append(json.loads(line))
-                            except ValueError, TypeError:
+                            except (ValueError, TypeError) as error:
+                                self._storage_error(error, 'decode')
                                 continue
-        except Exception:
+        except Exception as error:
+            self._storage_error(error, 'read')
             rows = list(self.recent)
         if self.failed:
             existing = {(r.get('session'), r.get('seq')) for r in rows}
@@ -251,6 +291,12 @@ class DebugJournal:
                 for r in self.recent
                 if (r.get('session'), r.get('seq')) not in existing
             )
+            # A recovered disk may contain seq4 while the error at seq3
+            # exists only in memory. Merge in session/sequence order.
+            sessions = {}
+            for row in rows:
+                sessions.setdefault(row.get('session'), len(sessions))
+            rows.sort(key=lambda row: (sessions[row.get('session')], row.get('seq', 0)))
         return rows
 
     def report(self, device, state):
@@ -340,8 +386,8 @@ class DebugJournal:
                 self.recent.clear()
                 self.emit('logs_cleared_by_user')
             return True
-        except Exception:
-            self.failed = True
+        except Exception as error:
+            self._storage_error(error, 'clear')
             return False
 
 

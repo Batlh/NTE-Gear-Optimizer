@@ -98,7 +98,14 @@ def clean(value):
 
 class DebugJournal:
     def __init__(
-        self, directory, *, max_bytes=512 * 1024, slots=3, clock=time.monotonic
+        self,
+        directory,
+        *,
+        max_bytes=512 * 1024,
+        slots=3,
+        clock=time.monotonic,
+        buffered=False,
+        sync_interval=0.5,
     ):
         self.directory = Path(directory)
         self.max_bytes = max_bytes
@@ -113,6 +120,10 @@ class DebugJournal:
         self.failed = False
         self.storage_errors = {}
         self.last_sync = float('-inf')
+        self.buffered = buffered
+        self.sync_interval = sync_interval
+        self.buffered_lines = []
+        self.disk_dirty = False
         self._begin_session()
         self.emit('session_start')
 
@@ -207,31 +218,69 @@ class DebugJournal:
                         row['data_truncated'] = True
                         line = (json.dumps(row) + '\n').encode('utf-8')
                 self.recent.append(row)
-                self.directory.mkdir(parents=True, exist_ok=True)
-                active = self._file(0)
-                if (
-                    active.exists()
-                    and active.stat().st_size + len(line) > self.max_bytes
-                ):
-                    for i in range(self.slots - 2, 0, -1):
-                        previous = self._file(i - 1)
-                        if previous.exists():
-                            previous.replace(self._file(i))
-                with active.open('ab') as f:
-                    f.write(line)
-                    f.flush()
-                    if self.clock() - self.last_sync >= 0.5 or event in (
-                        'exception',
-                        'app_stop',
-                        'app_pause',
-                        'session_start',
-                    ):
-                        os.fsync(f.fileno())
-                        self.last_sync = self.clock()
+                self.buffered_lines.append(line)
+                critical = event in (
+                    'exception',
+                    'app_stop',
+                    'app_pause',
+                    'session_start',
+                )
+                if not self.buffered or critical:
+                    self.flush_disk(force_sync=critical)
                 return row
         except Exception as error:
             self._storage_error(error, 'write')
             return None
+
+    def flush_disk(self, *, force_sync=False):
+        # Called only by the writer for buffered journals. The synchronous
+        # compatibility store retains its old deterministic test behaviour.
+        try:
+            with self.lock:
+                lines, self.buffered_lines = self.buffered_lines, []
+                if (
+                    not lines
+                    and not force_sync
+                    and not (
+                        self.disk_dirty
+                        and self.clock() - self.last_sync >= self.sync_interval
+                    )
+                ):
+                    return
+                self.directory.mkdir(parents=True, exist_ok=True)
+                active = self._file(0)
+                size = active.stat().st_size if active.exists() else 0
+                chunks = []
+                count = 0
+
+                def append_chunks():
+                    if chunks:
+                        with active.open('ab') as target:
+                            target.write(b''.join(chunks))
+                        self.disk_dirty = True
+                        chunks.clear()
+
+                for line in lines:
+                    if size + count + len(line) > self.max_bytes:
+                        append_chunks()
+                        for i in range(self.slots - 2, 0, -1):
+                            previous = self._file(i - 1)
+                            if previous.exists():
+                                previous.replace(self._file(i))
+                        size, count = 0, 0
+                    chunks.append(line)
+                    count += len(line)
+                append_chunks()
+                if active.exists() and (
+                    force_sync or self.clock() - self.last_sync >= self.sync_interval
+                ):
+                    with active.open('ab') as target:
+                        target.flush()
+                        os.fsync(target.fileno())
+                    self.last_sync = self.clock()
+                    self.disk_dirty = False
+        except Exception as error:
+            self._storage_error(error, 'write')
 
     def input(self, field, raw, normalized, hint):
         try:
@@ -269,6 +318,7 @@ class DebugJournal:
         )
 
     def events(self):
+        self.flush_disk()
         rows = []
         try:
             with self.lock:
@@ -383,6 +433,7 @@ class DebugJournal:
                 for i in range(self.slots):
                     self._file(i).unlink(missing_ok=True)
                 self.pending.clear()
+                self.buffered_lines.clear()
                 self.recent.clear()
                 self.emit('logs_cleared_by_user')
             return True

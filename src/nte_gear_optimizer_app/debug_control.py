@@ -14,11 +14,11 @@ from kivy.base import ExceptionHandler, ExceptionManager
 from kivy.utils import platform
 
 from .debug_journal import (
-    DebugJournal,
     PRIVACY_NOTICE,
     install_uncaught_hooks,
     private_log_directory,
 )
+from .background_journal import BackgroundJournal
 from .debug_export import (
     android_download,
     android_share,
@@ -39,7 +39,7 @@ class DebugControl:
 
             self.activity = autoclass('org.kivy.android.PythonActivity').mActivity
             android_files = str(self.activity.getFilesDir().getAbsolutePath())
-        self.journal = DebugJournal(private_log_directory(platform, android_files))
+        self.journal = BackgroundJournal(private_log_directory(platform, android_files))
         self.performance = PerformanceTrace(self.journal.emit)
         Window.bind(on_flip=self.performance.frame)
         from .scroll_observer import ScrollObserver
@@ -69,7 +69,6 @@ class DebugControl:
         self.exception_handler = JournalExceptionHandler()
         ExceptionManager.add_handler(self.exception_handler)
         Clock.schedule_interval(lambda dt: self.journal.flush_inputs(), 0.1)
-        self.scroll_event = Clock.create_trigger(self.scroll_record, 0.2)
         self.journal.emit('app_start', device=self.device())
         if platform == 'android':
             Clock.schedule_interval(self.native_keyboard_state, 0.1)
@@ -234,14 +233,6 @@ class DebugControl:
             widget.bind(text=changed)
         scroll = self.app.scroll
         self.scroll_observer.attach(scroll, 'step' + str(self.app.vm.step + 1))
-        if scroll not in self.bound:
-            self.bound.add(scroll)
-            scroll.bind(scroll_y=lambda *_: self.scroll_event())
-
-    def scroll_record(self, dt):
-        self.journal.emit(
-            'scroll', step=self.app.vm.step, scroll_y=self.app.scroll.scroll_y
-        )
 
     def state(self):
         vm = self.app.vm
@@ -382,4 +373,5 @@ class DebugControl:
         Window.unbind(on_flip=self.performance.frame)
         self.journal.flush_inputs(force=True)
         self.journal.emit('app_stop')
+        self.journal.close()
         ExceptionManager.remove_handler(self.exception_handler)

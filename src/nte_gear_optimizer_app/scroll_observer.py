@@ -62,6 +62,7 @@ class ScrollObserver:
             }
         self.metrics = ScrollMetrics(emit, self.display['active_hz'])
         self.bound = weakref.WeakSet()
+        self.labels = weakref.WeakKeyDictionary()
         window.bind(on_motion=self.motion, on_flip=self.metrics.frame)
         self.event = clock.schedule_interval(self.metrics.settle, 0.05)
 
@@ -77,13 +78,14 @@ class ScrollObserver:
         return False
 
     def attach(self, scroll, label):
+        self.labels[scroll] = label
         if scroll in self.bound:
             return
         self.bound.add(scroll)
 
         def changed(w, y):
             overflow = max(0, w.viewport_size[1] - w.height)
-            self.metrics.changed(label, float(y) * overflow)
+            self.metrics.changed(self.labels[w], float(y) * overflow)
 
         scroll.bind(scroll_y=changed)
 

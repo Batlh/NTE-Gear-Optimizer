@@ -430,6 +430,31 @@ class FieldProbe(ComparisonApp):
         self.scroll.scroll_to(left, padding=30)
         yield 0.5
         self.capture_view(out, 'paired_hint_top_aligned')
+        # Check actual rendered text, not just the foreground property: a
+        # wrongly appended canvas Color can tint otherwise correct properties.
+        self.dismiss_keyboard()
+        yield 0.3
+        self.capture_view(out, 'design_input_contrast')
+        from PIL import Image
+
+        shot = max(out.glob('design_input_contrast*.png'))
+        image = Image.open(shot).convert('RGB')
+        x, y = left.to_window(left.x, left.y)
+        sx, sy = image.width / Window.width, image.height / Window.height
+        region = image.crop(
+            (
+                int((x + 8) * sx),
+                int((Window.height - y - left.height + 5) * sy),
+                int((x + left.width - 8) * sx),
+                int((Window.height - y - 5) * sy),
+            )
+        )
+        bright = sum(min(pixel) >= 180 for pixel in region.getdata())
+        assert bright >= 8, ('Input text lost foreground contrast', bright)
+        assert self.debug_button.height >= 48
+        self.evidence.append(
+            {'rendered_input_foreground': 'PASS', 'debug_touch_height': 'PASS'}
+        )
         left.text = '0'
         right.text = '2.560'
         yield 0.5

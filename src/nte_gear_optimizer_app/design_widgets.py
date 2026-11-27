@@ -1,6 +1,6 @@
 """Small canvas-only decorations; no overlay widgets intercept input."""
 
-from kivy.graphics import Color, Line, RoundedRectangle
+from kivy.graphics import Color, Line, RoundedRectangle, InstructionGroup
 from kivy.metrics import dp, sp
 from kivy.properties import StringProperty, NumericProperty
 from kivy.uix.button import Button
@@ -73,13 +73,17 @@ class DesignTextInput(TextInput):
             padding=[dp(12), dp(12)],
         )
         super().__init__(**kwargs)
-        with self.canvas.before:
-            Color(*rgba('background'))
-            self.fill = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(10)])
-            self.line_color = Color(*rgba('border'))
-            self.edge = Line(
-                rounded_rectangle=(*self.pos, *self.size, dp(10)), width=dp(1)
-            )
+        # Prepend decoration before Kivy's own cursor and foreground Color.
+        # Appending after them tints text with the border and covers the cursor.
+        decoration = InstructionGroup()
+        decoration.add(Color(*rgba('background')))
+        self.fill = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(10)])
+        decoration.add(self.fill)
+        self.line_color = Color(*rgba('border'))
+        decoration.add(self.line_color)
+        self.edge = Line(rounded_rectangle=(*self.pos, *self.size, dp(10)), width=dp(1))
+        decoration.add(self.edge)
+        self.canvas.before.insert(0, decoration)
         self.bind(pos=self.style, size=self.style, focus=self.style)
         self.style()
 

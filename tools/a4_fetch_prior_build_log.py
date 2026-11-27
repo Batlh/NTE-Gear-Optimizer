@@ -11,7 +11,7 @@ from a4_run_android_build import safe_line
 assert os.environ.get('GITHUB_ACTIONS') == 'true'
 out = Path('build/a4_prior_build_diagnostic')
 out.mkdir(parents=True, exist_ok=False)
-job_id = int(os.environ.get('NTE_PRIOR_BUILD_JOB_ID', '140760246804'))
+job_id = int(os.environ.get('NTE_PRIOR_BUILD_JOB_ID', '140770579698'))
 assert job_id > 0
 process = subprocess.Popen(
     [

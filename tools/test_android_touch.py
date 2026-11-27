@@ -1,13 +1,15 @@
 """CI emulator: actual adb taps/swipes plus read-only Kivy observations."""
 
 import json
-import base64
-import zlib
 import os
 from pathlib import Path
 from android_ime_state import read_ime_state
 import subprocess
 import time
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
+from nte_gear_optimizer_app.probe_protocol import decode_probe
 
 assert os.environ.get('GITHUB_ACTIONS') == 'true'
 out = Path('build/emulator_touch')
@@ -39,13 +41,7 @@ def app_logs(tail=None):
 
 
 def state():
-    lines = app_logs(3000).splitlines()
-    for line in reversed(lines):
-        if 'NTE_CI_STATE=' in line:
-            return json.loads(
-                zlib.decompress(base64.b64decode(line.split('NTE_CI_STATE=', 1)[1]))
-            )
-    raise AssertionError('No emulator-only UI observation received')
+    return decode_probe(app_logs(3000))
 
 
 def fresh():

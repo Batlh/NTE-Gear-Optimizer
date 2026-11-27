@@ -5,8 +5,7 @@ No user-file persistence, export or runtime network access is introduced.
 """
 
 import json
-import base64
-import zlib
+from .probe_protocol import encode_probe
 from pathlib import Path
 
 
@@ -103,7 +102,11 @@ def install_probe(app):
             round(widget.height, 2),
         ]
 
+    sequence = 0
+
     def snapshot(dt):
+        nonlocal sequence
+        sequence += 1
         frame = autoclass('android.graphics.Rect')()
         activity.getWindow().getDecorView().getWindowVisibleDisplayFrame(frame)
         state = {
@@ -187,12 +190,7 @@ def install_probe(app):
                     for value, name, w in app.selector_rows
                 ],
             }
-        print(
-            'NTE_CI_STATE='
-            + base64.b64encode(
-                zlib.compress(json.dumps(state, ensure_ascii=True).encode('utf-8'))
-            ).decode('ascii'),
-            flush=True,
-        )
+        for line in encode_probe(state, sequence):
+            print(line, flush=True)
 
     Clock.schedule_interval(snapshot, 0.4)

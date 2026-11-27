@@ -1,12 +1,14 @@
 """Real adb input; inspect pre-fix H01 and keyboard focus/IME sequence."""
 
-import base64
 import json
 import os
 from pathlib import Path
 import subprocess
 import time
-import zlib
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
+from nte_gear_optimizer_app.probe_protocol import decode_probe
 
 from android_ime_state import read_ime_state
 
@@ -42,12 +44,7 @@ def app_logs(tail=None):
 
 
 def state():
-    for line in reversed(app_logs(6000).splitlines()):
-        if 'NTE_CI_STATE=' in line:
-            return json.loads(
-                zlib.decompress(base64.b64decode(line.split('NTE_CI_STATE=', 1)[1]))
-            )
-    raise AssertionError('No read-only UI probe')
+    return decode_probe(app_logs(6000))
 
 
 def fresh():

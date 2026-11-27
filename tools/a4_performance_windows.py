@@ -92,9 +92,53 @@ class PerformanceProbe(ComparisonApp):
 
         threading.Thread(target=gesture, daemon=True).start()
 
+    def tap(self, widget):
+        from ctypes import wintypes
+
+        api = ctypes.windll.user32
+        api.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+        api.FindWindowW.restype = wintypes.HWND
+        api.ClientToScreen.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.POINT)]
+        hwnd = api.FindWindowW(None, self.title)
+        assert hwnd
+        origin = wintypes.POINT(0, 0)
+        assert api.ClientToScreen(hwnd, ctypes.byref(origin))
+        x, y = widget.to_window(widget.center_x, widget.center_y)
+        point = (round(origin.x + x), round(origin.y + Window.height - y))
+
+        def action():
+            try:
+                api.SetCursorPos(*point)
+                time.sleep(0.08)
+                api.mouse_event(0x0002, 0, 0, 0, 0)
+                time.sleep(0.04)
+                api.mouse_event(0x0004, 0, 0, 0, 0)
+            except Exception:
+                self.drag_error = traceback.format_exc()
+
+        threading.Thread(target=action, daemon=True).start()
+
     def scenario(self):
         # The unmodified selection screen is long enough for reproducible
         # down/up gestures. Do not inject model values or call scroll_to.
+        from nte_gear_optimizer_app import texts as T
+
+        self.tap(self.selector_widgets[T.UI['character']])
+        yield 1
+        assert self.active_selector is not None, 'OS mouse did not open selector'
+        self.capture_view(OUT, 'selector_actual_os_mouse')
+        self.tap(self.active_selector[-1])
+        yield 0.8
+        assert self.active_selector is None
+        if os.environ.get('NTE_A4_FROZEN_BASELINE') == '1':
+            for _ in range(4):
+                self.drag(False)
+                yield 2.1
+                self.drag(True)
+                yield 2.1
+            self.debug.scroll_observer.metrics.finish()
+            yield 0.3
+            return
         for enabled in [True, False, False, True]:
             self.debug.scroll_observer.metrics.finish()
             self.debug.journal.enabled = enabled
@@ -136,6 +180,11 @@ class PerformanceProbe(ComparisonApp):
                 ['git', 'rev-parse', 'HEAD'], text=True
             ).strip(),
             'platform': 'windows',
+            'frozen_baseline': os.environ.get('NTE_A4_FROZEN_BASELINE') == '1',
+            'measurement_driver_sha256': __import__('hashlib')
+            .sha256(Path(__file__).read_bytes())
+            .hexdigest(),
+            'selector_actual_os_mouse': self.active_selector is None,
             'failure': self.failure,
             'scroll_summary': summary,
             'logging_blocks': self.blocks,

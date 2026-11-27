@@ -2,10 +2,10 @@ name: phase2a-app
 on:
   push:
     branches: [v029-phase2a]
-    paths-ignore: [tools/a3_*.py, .github/workflows/phase2a3-cause.yml]
+    paths-ignore: [tools/a3_*.py, tools/a4_*.py, .github/workflows/phase2a3-cause.yml, .github/workflows/phase2a4-performance.yml]
   pull_request:
     branches: [v029-phase2a]
-    paths-ignore: [tools/a3_*.py, .github/workflows/phase2a3-cause.yml]
+    paths-ignore: [tools/a3_*.py, tools/a4_*.py, .github/workflows/phase2a3-cause.yml, .github/workflows/phase2a4-performance.yml]
 permissions:
   contents: read
 jobs:
@@ -82,7 +82,7 @@ jobs:
       - run: python tools/configure_android_ci.py
       - run: python tools/check_android_manifest.py
       - run: python tools/stage_android.py
-      - run: buildozer -v android debug
+      - run: python tools/a4_run_android_build.py
       - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
         if: steps.android-cache.outputs.cache-hit != 'true'
         with:
@@ -111,6 +111,8 @@ jobs:
             build/signature.json
             build/certificate_public.txt
             build/android_artifact.json
+            build/android_build_tail.txt
+            build/android_build_diagnostic.json
             build/manifest_preflight
             build/android_runtime_dependencies.txt
             .buildozer/android/platform/build-*/dists/*/build/outputs/logs/manifest-merger-debug-report.txt

@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import sys
 import traceback
+import time
 
 assert os.environ.get('GITHUB_ACTIONS') == 'true', (
     'Isolated CI only; never control a local window'
@@ -141,6 +142,8 @@ class FieldProbe(ComparisonApp):
         self.stop()
 
     def click(self, widget):
+        self.click_start_sequence = self.debug.trace.sequence
+        self.click_start_time = time.monotonic()
         # Windows SDL receives mouse-motion asynchronously. Do not post the
         # down event in the same event-loop turn as SetCursorPos: the proven
         # failed export clicked the previous button's coordinates instead.
@@ -148,6 +151,31 @@ class FieldProbe(ComparisonApp):
         native_button(widget, None)
         Clock.schedule_once(lambda dt: native_button(widget, True), 0.12)
         Clock.schedule_once(lambda dt: native_button(widget, False), 0.20)
+
+    def wait_click(self, predicate, description):
+        # The CI VM can stall an SDL frame on disk I/O. A fixed sleep expired
+        # before motion_end in run46009343844. Wait for the actual OS release
+        # and requested outcome, without repeating the click or setting focus.
+        deadline = self.click_start_time + 3
+        while True:
+            released = any(
+                row['seq'] > self.click_start_sequence and row['event'] == 'motion_end'
+                for row in self.debug.trace.events
+            )
+            if released and predicate():
+                self.evidence.append(
+                    {
+                        'observed_os_click': description,
+                        'seconds': round(time.monotonic() - self.click_start_time, 3),
+                    }
+                )
+                return
+            assert time.monotonic() < deadline, (
+                'OS click deadline',
+                description,
+                released,
+            )
+            yield 0.05
 
     def clipped(self, widget):
         box = [*widget.to_window(*widget.pos), *widget.size]
@@ -205,7 +233,10 @@ class FieldProbe(ComparisonApp):
             yield 0.5
             self.guard(case, step)
             self.click(widget)
-            yield 0.55
+            yield from self.wait_click(
+                lambda: [k for k, w in self.inputs.items() if w.focus] == [key],
+                ':'.join(key),
+            )
             focused = [k for k, w in self.inputs.items() if w.focus]
             assert focused == [key], (case, step, key, focused)
             self.evidence.append(
@@ -382,10 +413,16 @@ class FieldProbe(ComparisonApp):
         yield 0.5
         self.capture_view(out, 'debug_menu')
         self.click(self.active_debug[1]['Debug-Bericht exportieren'])
-        yield 0.5
+        yield from self.wait_click(
+            lambda: self.active_debug and 'Fortfahren' in self.active_debug[1],
+            'Fortfahren',
+        )
         assert 'Fortfahren' in self.active_debug[1]
         self.click(self.active_debug[1]['Fortfahren'])
-        yield 0.8
+        yield from self.wait_click(
+            lambda: self.active_debug and 'Schließen' in self.active_debug[1],
+            'Schließen',
+        )
         assert 'Schließen' in self.active_debug[1]
         exported = max((Path.home() / 'Downloads').glob('NTE_Debugbericht_*.txt'))
         saved = exported.read_text(encoding='utf-8')

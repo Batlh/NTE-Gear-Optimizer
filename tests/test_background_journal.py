@@ -79,3 +79,28 @@ def test_sequence_boundary_is_ordered_after_all_queued_records(tmp_path):
         assert rows[-1]['event'] == 'after_boundary' and rows[-1]['seq'] > boundary
     finally:
         log.close()
+
+
+def test_real_performance_measurement_survives_background_export(tmp_path):
+    from nte_gear_optimizer_app.performance import PerformanceTrace
+
+    log = BackgroundJournal(tmp_path)
+    clock = [10.0]
+    performance = PerformanceTrace(log.emit, clock=lambda: clock[0])
+    try:
+        token = performance.start('render', step=3)
+        clock[0] += 0.04
+        performance.finish(token, frame=True)
+        clock[0] += 0.005
+        performance.frame()
+        for full in (False, True):
+            payload = json.loads(log.report({}, {}, full=full).split(JSON_MARKER)[1])
+            rows = [r for r in payload['events'] if r['event'] == 'performance']
+            assert [(r['operation'], r['duration_ms']) for r in rows] == [
+                ('render', 40.0),
+                ('render_first_frame', 45.0),
+            ]
+            assert payload['performance_summary']['slowest_10']
+        assert not log.failed
+    finally:
+        log.close()

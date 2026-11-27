@@ -91,13 +91,13 @@ class BackgroundJournal:
                 self.store.flush_disk()
                 last_flush = now
 
-    def _enqueue(self, operation, *args, **kwargs):
+    def _enqueue(self, store_method, *args, **kwargs):
         if self.closed:
             return False
-        if not self.enabled and operation in ('emit', 'input', 'flush_inputs'):
+        if not self.enabled and store_method in ('emit', 'input', 'flush_inputs'):
             return True
         try:
-            self.jobs.put_nowait((operation, deepcopy(args), deepcopy(kwargs), None))
+            self.jobs.put_nowait((store_method, deepcopy(args), deepcopy(kwargs), None))
             return True
         except queue.Full:
             self.dropped += 1

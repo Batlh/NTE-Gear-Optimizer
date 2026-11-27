@@ -81,6 +81,7 @@ class InputTrace:
             original = widget.on_touch_down
 
             def traced(touch, original=original, widget=widget):
+                widget._nte_touch_id = str(touch.uid)
                 accepted = original(touch)
                 if accepted:
                     self.emit(
@@ -93,10 +94,21 @@ class InputTrace:
                 return accepted
 
             widget.on_touch_down = traced
+            if hasattr(widget, 'on_press'):
+                widget.bind(
+                    on_press=lambda w: self.emit(
+                        'touch_target',
+                        widget=self.describe(w),
+                        touch_id=getattr(w, '_nte_touch_id', None),
+                    )
+                )
             if hasattr(widget, 'focus'):
                 widget.bind(
                     focus=lambda w, value: self.emit(
-                        'focus', widget=self.describe(w), focused=bool(value)
+                        'focus',
+                        widget=self.describe(w),
+                        focused=bool(value),
+                        touch_id=getattr(w, '_nte_touch_id', None),
                     )
                 )
 

@@ -10,6 +10,9 @@ from kivy.utils import platform as KIVY_PLATFORM
 from .input_config import configure_input
 
 configure_input(Config, KIVY_PLATFORM)
+from .frame_policy import configure_frame_policy
+
+FRAME_POLICY = configure_frame_policy(Config, KIVY_PLATFORM)
 Config.set('kivy', 'exit_on_escape', '0')
 if os.environ.get('NTE_TEST_MODE') == 'smoke':
     Config.set('graphics', 'width', '900')
@@ -24,7 +27,7 @@ from kivy.metrics import dp, sp
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
-from kivy.uix.scrollview import ScrollView
+from .responsive_scroll import ResponsiveScrollView
 from kivy.uix.modalview import ModalView
 from kivy.graphics import Color, Rectangle
 from kivy.uix.textinput import TextInput
@@ -60,8 +63,26 @@ class ComparisonApp(App):
         self.keyboard_viewport = None
         self.active_touches = set()
         self.focus_scroll_event = None
+        self.page_records = {}
+        self.active_page = None
+        self.building_page = None
+        self.factory_counts = {}
+
+    def factory_key(self, kind, explicit=None):
+        if self.building_page is None:
+            return None
+        index = self.factory_counts.get(kind, 0)
+        self.factory_counts[kind] = index + 1
+        return (kind, explicit if explicit is not None else index)
 
     def label(self, text, size=17):
+        key = self.factory_key('label')
+        if key is not None and key in self.building_page['controls']:
+            label = self.building_page['controls'][key]
+            if label.text != text:
+                label.text = text
+            label.font_size = sp(size)
+            return label
         label = Label(
             text=text,
             font_name='NTEText',
@@ -78,9 +99,18 @@ class ComparisonApp(App):
                 widget, 'height', max(dp(42), size[1] + dp(12))
             )
         )
+        if key is not None:
+            self.building_page['controls'][key] = label
         return label
 
-    def button(self, text, callback):
+    def button(self, text, callback, *, cache_key=None):
+        key = self.factory_key('button', cache_key)
+        if key is not None and key in self.building_page['controls']:
+            button = self.building_page['controls'][key]
+            button._nte_callback = callback
+            if button.text != text:
+                button.text = text
+            return button
         button = Button(
             text=text,
             font_name='NTEText',
@@ -90,7 +120,27 @@ class ComparisonApp(App):
             background_normal='',
             background_color=(0.12, 0.37, 0.48, 1),
         )
-        button.bind(on_release=lambda *_: callback())
+        button._nte_callback = callback
+
+        def pressed(widget):
+            widget._nte_action_touch = getattr(widget, '_nte_touch_id', None)
+            if self.debug and widget._nte_action_touch is not None:
+                self.debug.performance.feedback(
+                    'button_pressed', widget._nte_action_touch
+                )
+
+        def released(widget):
+            touch = getattr(widget, '_nte_action_touch', None)
+            widget._nte_action_touch = None
+            try:
+                widget._nte_callback()
+            finally:
+                if self.debug and touch is not None:
+                    self.debug.performance.action_response(touch)
+
+        button.bind(on_press=pressed, on_release=released)
+        if key is not None:
+            self.building_page['controls'][key] = button
         return button
 
     @timed('selector_setup')
@@ -114,7 +164,9 @@ class ComparisonApp(App):
         )
         self.selector_specs[label] = (entries, current)
         widget = self.button(
-            displayed, lambda: self.open_selector(label, entries, callback)
+            displayed,
+            lambda: self.open_selector(label, entries, callback),
+            cache_key='selector:' + label,
         )
         self.selector_widgets[label] = widget
         self.body.add_widget(widget)
@@ -148,9 +200,7 @@ class ComparisonApp(App):
             size=lambda w, v: setattr(background, 'size', v),
         )
         layout.add_widget(self.label(title, 21))
-        scroll = ScrollView(
-            do_scroll_x=False, scroll_timeout=350, scroll_distance=dp(12)
-        )
+        scroll = ResponsiveScrollView(do_scroll_x=False)
         rows = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(4))
         rows.bind(minimum_height=rows.setter('height'))
         self.selector_rows = []
@@ -252,6 +302,14 @@ class ComparisonApp(App):
         self.focus_scroll_event = Clock.schedule_once(after_touch, 0)
 
     def text_input(self, group, field, value):
+        key = ('input', group, field)
+        if self.building_page is not None and key in self.building_page['controls']:
+            widget = self.building_page['controls'][key]
+            self.inputs[(group, field)] = widget
+            self.input_hints[(group, field)] = widget._nte_hint
+            if widget.text != (value or ''):
+                widget.text = value or ''
+            return widget._nte_box
         widget = TextInput(
             keyboard_mode='managed' if KIVY_PLATFORM == 'android' else 'auto',
             text=value or '',
@@ -311,6 +369,9 @@ class ComparisonApp(App):
         box.add_widget(hint)
         validate(widget, widget.text)
         self.input_hints[(group, field)] = hint
+        widget._nte_box, widget._nte_hint = box, hint
+        if self.building_page is not None:
+            self.building_page['controls'][key] = widget
         return box
 
     def input_changed(self, group, field, value):
@@ -347,6 +408,11 @@ class ComparisonApp(App):
         from .debug_control import DebugControl
 
         self.debug = DebugControl(self)
+        self.debug.journal.emit('frame_policy', **FRAME_POLICY)
+        if KIVY_PLATFORM == 'android':
+            from .frame_policy import request_android_mode
+
+            request_android_mode(self.debug.journal.emit)
         if KIVY_PLATFORM == 'android':
             from .keyboard_session import KeyboardSession
 
@@ -358,9 +424,7 @@ class ComparisonApp(App):
         self.root_box.add_widget(self.label(T.SUBTITLE, 14))
         self.progress = self.label('', 20)
         self.root_box.add_widget(self.progress)
-        self.scroll = ScrollView(
-            do_scroll_x=False, scroll_timeout=350, scroll_distance=dp(12)
-        )
+        self.scroll = ResponsiveScrollView(do_scroll_x=False)
         self.body = BoxLayout(orientation='vertical', spacing=dp(10), size_hint_y=None)
         self.body.bind(minimum_height=self.body.setter('height'))
         self.scroll.add_widget(self.body)
@@ -426,23 +490,144 @@ class ComparisonApp(App):
         self.vm.set_override(key, value)
         self.render()
 
+    PAGE_FIELDS = (
+        'inputs',
+        'input_hints',
+        'white_box',
+        'white_anchor',
+        'zero_buttons',
+        'selector_specs',
+        'selector_widgets',
+        'jump_buttons',
+    )
+
+    def page_key(self):
+        if self.vm.step in (1, 2):
+            groups = tuple(
+                (k, tuple(v)) for k, v in self.vm.groups(self.vm.step == 2).items()
+            )
+            return (self.vm.step, groups, self.vm.profile().get('ScalingStat'))
+        return (self.vm.step,)
+
+    def page_signature(self):
+        if self.vm.step == 0:
+            return (
+                self.vm.character_id,
+                self.vm.ark_id,
+                self.vm.profile_id,
+                self.vm.branch_id,
+                tuple(sorted(self.vm.overrides.items())),
+            )
+        if self.vm.step == 3:
+            return (
+                id(self.vm.last_result),
+                self.details_expanded,
+                self.clarification_expanded,
+                self.show_all_values,
+            )
+        return self.page_key()
+
+    def sync_input_values(self, fields=None):
+        groups = {
+            'current': self.vm.current,
+            'x': self.vm.item_x,
+            'y': self.vm.item_y,
+            'level': {'ArkLevel': self.vm.ark_level},
+            'white': {'WhitePanelBase': self.vm.white_panel_base},
+        }
+        for (group, field), widget in self.inputs.items():
+            if fields is not None and (group, field) not in fields:
+                continue
+            value = groups[group].get(field) or ''
+            if widget.text != value:
+                widget.text = value
+        self.update_white_visibility()
+
     @timed('render', frame=True)
     def render(self):
+        from .reconcile_layout import ReconcileLayout
+
         self.vm.performance = self.debug.performance if self.debug else None
         self.dismiss_keyboard()
-        self.selector_specs = {}
-        self.selector_widgets = {}
-        self.jump_buttons = {}
-        self.body.clear_widgets()
-        self.inputs = {}
-        self.input_hints = {}
-        self.white_box = None
-        self.white_anchor = None
-        self.zero_buttons = []
+        if self.active_page is not None:
+            self.active_page['state'] = {
+                name: getattr(self, name, None) for name in self.PAGE_FIELDS
+            }
+            self.active_page['scroll_y'] = self.scroll.scroll_y
+        key = self.page_key()
+        page = self.page_records.get(key)
+        if page is None:
+            body = (ReconcileLayout if self.vm.step in (0, 3) else BoxLayout)(
+                orientation='vertical', spacing=dp(10), size_hint_y=None
+            )
+            body.bind(minimum_height=body.setter('height'))
+            page = {
+                'body': body,
+                'controls': {},
+                'state': {},
+                'signature': None,
+                'scroll_y': 1,
+            }
+            self.page_records[key] = page
+            # Bound retained schema variants. Four ordinary pages always fit;
+            # old profile-specific variants may be rebuilt after many changes.
+            if len(self.page_records) > 10:
+                victim = next(
+                    k for k in self.page_records if k != key and k[0] in (1, 2)
+                )
+                self.page_records.pop(victim)
+        if self.body is not page['body']:
+            if self.body.parent is self.scroll:
+                self.scroll.remove_widget(self.body)
+            self.body = page['body']
+            self.scroll.add_widget(self.body)
+        self.active_page = page
+        defaults = {
+            'inputs': {},
+            'input_hints': {},
+            'white_box': None,
+            'white_anchor': None,
+            'zero_buttons': [],
+            'selector_specs': {},
+            'selector_widgets': {},
+            'jump_buttons': {},
+        }
+        for name, value in defaults.items():
+            setattr(self, name, page['state'].get(name, value))
         self.progress.text = T.STEPS[self.vm.step]
-        self.scroll.scroll_y = 1
         self.back_button.disabled = self.vm.step == 0
         self.next_button.text = T.NEXT if self.vm.step < 3 else T.UI['recalculate']
+        signature = self.page_signature()
+        refresh = page['signature'] != signature
+        if refresh:
+            if self.vm.step in (0, 3):
+                self.building_page = page
+                self.factory_counts = {}
+                self.body.begin_refresh()
+                self.inputs = {}
+                self.input_hints = {}
+                self.selector_specs = {}
+                self.selector_widgets = {}
+                self.jump_buttons = {}
+            self.populate_page()
+            if self.vm.step in (0, 3):
+                self.body.end_refresh()
+            self.building_page = None
+            page['signature'] = signature
+            if self.vm.step == 3:
+                page['result_reference'] = self.vm.last_result
+            page['state'] = {
+                name: getattr(self, name, None) for name in self.PAGE_FIELDS
+            }
+        self.sync_input_values()
+        self.scroll.scroll_y = page['scroll_y']
+        if self.debug:
+            self.debug.attach()
+            self.debug.journal.emit(
+                'screen', step=self.vm.step, retained_page=not refresh
+            )
+
+    def populate_page(self):
         if self.vm.step == 0:
             self.selection()
         elif self.vm.step in (1, 2):
@@ -499,10 +684,6 @@ class ComparisonApp(App):
                 self.body.add_widget(
                     self.label(self.vm.details_display(self.show_all_values))
                 )
-
-        if self.debug:
-            self.debug.attach()
-            self.debug.journal.emit('screen', step=self.vm.step)
 
     def jump_to(self, step):
         before = self.vm.step
@@ -631,11 +812,16 @@ class ComparisonApp(App):
                 )
         self.body.add_widget(self.label(T.ARK_WARNING))
 
+    @timed('zero', frame=True)
     def zero(self, name, parts):
         self.vm.zero_group(name, parts)
+        targets = ('x', 'y') if parts else ('current',)
+        fields = {
+            (group, field) for group in targets for field in self.vm.groups(parts)[name]
+        }
+        self.sync_input_values(fields)
         if self.debug:
             self.debug.journal.emit('zero_bonus', group=name, parts=parts)
-        self.render()
 
     def values_screen(self, parts=False):
         self.body.add_widget(self.label(T.SWAP_NOTE if parts else T.CURRENT_NOTE))

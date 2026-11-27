@@ -12,6 +12,8 @@ class PerformanceTrace:
         self.counter = 0
         self.frames = []
         self.touches = {}
+        self.feedback_touches = {}
+        self.action_touches = {}
 
     def start(self, operation, **context):
         self.counter += 1
@@ -44,8 +46,43 @@ class PerformanceTrace:
 
     def touch_begin(self, identifier):
         self.touches[str(identifier)] = self.clock()
+        self.feedback_touches[str(identifier)] = self.touches[str(identifier)]
+        self.action_touches[str(identifier)] = self.touches[str(identifier)]
+        for values in (self.feedback_touches, self.action_touches):
+            while len(values) > 32:
+                values.pop(next(iter(values)))
         if len(self.touches) > 32:
             self.touches.pop(next(iter(self.touches)))
+
+    def queue_touch_phase(self, values, operation, reaction, identifier):
+        started = values.pop(str(identifier), None)
+        if started is None or self.clock() - started > 5:
+            return
+        self.frames.append(
+            (
+                operation,
+                started,
+                {
+                    'touch_id': str(identifier),
+                    'reaction': reaction,
+                    'scope': 'App event delivery to GL flip proxy; not physical display latency.',
+                },
+            )
+        )
+        self.frames = self.frames[-32:]
+
+    def feedback(self, reaction, identifier):
+        self.queue_touch_phase(
+            self.feedback_touches, 'touch_to_feedback_frame', reaction, identifier
+        )
+
+    def action_response(self, identifier):
+        self.queue_touch_phase(
+            self.action_touches,
+            'touch_to_action_frame',
+            'action_callback_returned',
+            identifier,
+        )
 
     def response(self, reaction, identifier=None):
         if not self.touches:

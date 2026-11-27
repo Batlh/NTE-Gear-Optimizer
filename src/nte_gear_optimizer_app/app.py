@@ -56,6 +56,7 @@ class ComparisonApp(App):
         self.active_debug = None
         self.debug = None
         self.keyboard_session = None
+        self.keyboard_viewport = None
         self.active_touches = set()
         self.focus_scroll_event = None
 
@@ -360,6 +361,12 @@ class ComparisonApp(App):
         self.debug_button.height = dp(34)
         self.root_box.add_widget(self.debug_button)
         self.render()
+        if KIVY_PLATFORM == 'android':
+            from .keyboard_viewport import KeyboardViewport, android_keyboard_reader
+
+            self.keyboard_viewport = KeyboardViewport(
+                self, Window, Clock, android_keyboard_reader(), self.debug.journal.emit
+            )
         return self.root_box
 
     def go_back(self):
@@ -672,6 +679,8 @@ class ComparisonApp(App):
             self.debug.journal.emit('app_resume')
 
     def on_stop(self):
+        if self.keyboard_viewport:
+            self.keyboard_viewport.stop()
         self.dismiss_keyboard()
         if self.debug:
             self.debug.stop()

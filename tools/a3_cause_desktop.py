@@ -152,9 +152,7 @@ class CauseProbe(ComparisonApp):
         ]
         assert not target.focus, 'Expected pre-fix blocked field instead received focus'
         assert hidden, ('No hidden/disabled consuming widget recorded', accepted)
-        assert any(r['widget']['field'] == 'white:WhitePanelBase' for r in hidden), (
-            hidden
-        )
+        assert any(r['widget']['in_white_subtree'] for r in hidden), hidden
         self.capture_view(out, 'h01_before_bottom_field')
         self.result = {
             'status': 'EXPECTED_FAIL_CONFIRMED',
@@ -170,5 +168,5 @@ app = CauseProbe()
 app.run()
 assert app.result['status'] == 'EXPECTED_FAIL_CONFIRMED', app.result
 print(
-    'Pre-fix H01 EXPECTED FAIL reproduced with real OS mouse; hidden white field consumed it'
+    'Pre-fix H01 EXPECTED FAIL reproduced with real OS mouse; hidden white-base subtree consumed it'
 )

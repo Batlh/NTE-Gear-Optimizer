@@ -54,6 +54,7 @@ class InputTrace:
             'class': type(widget).__name__,
             'uid': widget.uid,
             'field': field,
+            'in_white_subtree': getattr(self.app, 'white_box', None) in ancestors,
             'label': str(getattr(widget, 'text', ''))[:120],
             'enabled': not widget.disabled,
             'tree_visible': all(

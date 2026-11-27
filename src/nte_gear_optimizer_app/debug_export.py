@@ -35,9 +35,14 @@ def android_share(report, filename):
         autoclass('android.content.ClipData').newRawUri('NTE Debugbericht', uri)
     )
     intent.addFlags(intent_type.FLAG_GRANT_READ_URI_PERMISSION)
-    activity.startActivity(
-        intent_type.createChooser(intent, 'Debug-Bericht teilen oder speichern')
+    # createChooser is overloaded. Pyjnius cannot resolve a Python str as
+    # CharSequence here (confirmed on the emulator); provide the declared
+    # Java interface explicitly instead of relying on implicit conversion.
+    title = cast(
+        'java.lang.CharSequence',
+        autoclass('java.lang.String')('Debug-Bericht teilen oder speichern'),
     )
+    activity.startActivity(intent_type.createChooser(intent, title))
     return filename
 
 

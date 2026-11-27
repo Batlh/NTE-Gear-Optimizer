@@ -110,6 +110,23 @@ class FieldProbe(ComparisonApp):
             Clock.schedule_once(self.advance, delay)
 
     def finish(self):
+        # The debug tool must also explain its own failing export, not just
+        # leave a test assertion. This is read-only diagnostic evidence.
+        events = self.debug.journal.events()
+        (out / 'journal_events.json').write_text(
+            json.dumps(events, ensure_ascii=False, indent=2),
+            encoding='utf-8',
+            newline='\n',
+        )
+        if self.active_debug:
+            self.result['active_debug_buttons'] = list(self.active_debug[1])
+            self.result['active_debug_texts'] = [
+                str(getattr(w, 'text', ''))
+                for w in self.active_debug[0].walk()
+                if getattr(w, 'text', '')
+            ]
+        if self.result['status'] != 'PASS':
+            self.capture_view(out, 'failure_view')
         for name, value in [
             ('result.json', self.result),
             ('evidence.json', self.evidence),
@@ -195,7 +212,47 @@ class FieldProbe(ComparisonApp):
         self.capture_view(out, case + '_step' + str(step + 1) + '_bottom')
         yield 0.1
 
+    def export_only(self):
+        self.vm = ComparisonViewModel()
+        for key, value in {
+            'ProfileType': 'DAMAGE',
+            'ScalingStat': 'ANG',
+            'CritEligible': 'FALSE',
+            'BreakEligible': 'FALSE',
+            'CycleType': 'NONE',
+        }.items():
+            self.vm.set_override(key, value)
+        self.vm.item_x = {'ScalingPercentPP': '0', 'UniversalPP': '25😝60'}
+        self.vm.item_y = {'ScalingPercentPP': '0', 'UniversalPP': '2.560'}
+        self.vm.ark_level = '80😝8'
+        self.vm.choose_ark('ARK_ECHOES_ON_HOLD')
+        self.render()
+        yield 0.7
+        self.debug.test_exception()
+        self.debug.toggle_overlay()
+        self.click(self.inputs[('level', 'ArkLevel')])
+        yield 0.5
+        self.debug.menu()
+        yield 0.7
+        self.click(self.active_debug[1]['Debug-Bericht exportieren'])
+        yield 0.7
+        self.capture_view(out, 'privacy_notice')
+        assert 'Fortfahren' in self.active_debug[1]
+        self.click(self.active_debug[1]['Fortfahren'])
+        yield 1.2
+        self.capture_view(out, 'export_after_click')
+        assert 'Schließen' in self.active_debug[1]
+        exported = max((Path.home() / 'Downloads').glob('NTE_Debugbericht_*.txt'))
+        saved = exported.read_text(encoding='utf-8')
+        assert json.loads(saved.split(JSON_MARKER)[1])['format'] == 'NTE_DEBUG_V1'
+        (out / 'NTE_Debugbericht_export_only.txt').write_bytes(exported.read_bytes())
+        self.evidence.append({'real_export_only': 'PASS'})
+        yield 0.1
+
     def scenarios(self):
+        if os.environ.get('NTE_A3_EXPORT_ONLY') == '1':
+            yield from self.export_only()
+            return
         # Pairwise reduction: every scaling, all applicability flags both on
         # and off, known/unknown scaling, and a released guide profile.
         cases = [

@@ -20,8 +20,26 @@ def adb(*args):
     )
 
 
+def app_logs(tail=None):
+    process = subprocess.run(
+        ['adb', 'shell', 'pidof', 'io.github.batlh.nte_gear_optimizer'],
+        capture_output=True,
+        text=True,
+        encoding='utf-8',
+        errors='replace',
+    )
+    pids = process.stdout.strip().split()
+    assert process.returncode == 0 and len(pids) == 1 and pids[0].isdigit(), (
+        'App process not running or ambiguous'
+    )
+    args = ['logcat', '-d', '--pid=' + pids[0]]
+    if tail is not None:
+        args += ['-t', str(tail)]
+    return adb(*args)
+
+
 def state():
-    lines = adb('logcat', '-d', '-t', '3000').splitlines()
+    lines = app_logs(3000).splitlines()
     for line in reversed(lines):
         if 'NTE_CI_STATE=' in line:
             return json.loads(

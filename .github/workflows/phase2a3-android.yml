@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [fields, update]
+        mode: [fields, update_static]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -22,17 +22,21 @@ jobs:
       - name: Matching native test package
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python tools/a3_fetch_probe_apk.py ${{ matrix.mode == 'update' && 'android-debug-apk' || 'android-emulator-only-apk' }}
-      - if: matrix.mode == 'update'
+        run: python tools/a3_fetch_probe_apk.py ${{ matrix.mode == 'update_static' && 'android-debug-apk' || 'android-emulator-only-apk' }}
+      - if: matrix.mode == 'update_static'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh run download 45908701660 --repo Batlh/NTE-Gear-Optimizer --name android-debug-apk --dir build/a3_baseline_apk
+      - if: matrix.mode == 'update_static'
+        run: python tools/a3_verify_update_static.py
       - name: Enable isolated CI KVM
+        if: matrix.mode == 'fields'
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        if: matrix.mode == 'fields'
         with:
           api-level: 33
           target: google_apis
@@ -41,7 +45,7 @@ jobs:
           force-avd-creation: true
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: python tools/a3_${{ matrix.mode == 'update' && 'update_android' || 'android_fields' }}.py
+          script: python tools/a3_android_fields.py
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: always()
         with:
@@ -49,4 +53,5 @@ jobs:
           path: |
             build/a3_android_fields
             build/a3_update
+            build/a3_update_static
             build/a3_probe_apk.json

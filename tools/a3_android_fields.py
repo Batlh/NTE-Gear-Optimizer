@@ -94,7 +94,7 @@ try:
         ('current:ElementPP', '56', 'keyboard_C_upper'),
     ]:
         ime_field(key, value, name)
-        for line in ui.adb('logcat', '-d', '-t', '6000').splitlines():
+        for line in ui.app_logs(6000).splitlines():
             if 'NTE_A3_EVENT=' in line:
                 event = json.loads(line.split('NTE_A3_EVENT=', 1)[1])
                 handoff_events[event['seq']] = event
@@ -286,7 +286,7 @@ try:
 except Exception:
     result = {'status': 'FAIL', 'stacktrace': traceback.format_exc()}
 finally:
-    logs = ui.adb('logcat', '-d')
+    logs = ui.app_logs()
     (ui.out / 'logcat.txt').write_text(logs, encoding='utf-8', newline='\n')
     events = [
         json.loads(line.split('NTE_A3_EVENT=', 1)[1])

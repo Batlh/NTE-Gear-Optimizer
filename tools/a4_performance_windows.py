@@ -1,0 +1,126 @@
+"""Isolated CI real OS drags; never foreground a local user application."""
+
+import ctypes
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import threading
+import time
+import traceback
+
+assert os.environ.get('GITHUB_ACTIONS') == 'true', (
+    'CI only; no local foreground control'
+)
+assert sys.platform == 'win32'
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
+from kivy.config import Config
+
+Config.set('graphics', 'width', '900')
+Config.set('graphics', 'height', '700')
+from kivy.clock import Clock
+from kivy.core.window import Window
+from nte_gear_optimizer_app.app import ComparisonApp
+
+OUT = Path('build/a4_performance_windows')
+OUT.mkdir(parents=True, exist_ok=False)
+
+
+class PerformanceProbe(ComparisonApp):
+    def on_start(self):
+        self.actions = self.scenario()
+        self.failure = None
+        self.drag_error = None
+        Clock.schedule_once(self.advance, 1)
+
+    def advance(self, dt):
+        try:
+            if self.drag_error:
+                raise RuntimeError(self.drag_error)
+            delay = next(self.actions)
+        except StopIteration:
+            self.finish()
+        except Exception:
+            self.failure = traceback.format_exc()
+            self.finish()
+        else:
+            Clock.schedule_once(self.advance, delay)
+
+    def drag(self, up):
+        # Obtain the client origin on the UI thread, inject actual OS mouse
+        # messages from a separate timer so a slow UI cannot pace the input.
+        from ctypes import wintypes
+
+        api = ctypes.windll.user32
+        api.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+        api.FindWindowW.restype = wintypes.HWND
+        api.ClientToScreen.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.POINT)]
+        api.SetForegroundWindow.argtypes = [wintypes.HWND]
+        hwnd = api.FindWindowW(None, self.title)
+        assert hwnd
+        origin = wintypes.POINT(0, 0)
+        assert api.ClientToScreen(hwnd, ctypes.byref(origin))
+        api.SetForegroundWindow(hwnd)
+        x, y = self.scroll.to_window(self.scroll.x, self.scroll.y)
+        width, height = self.scroll.size
+        start_y = origin.y + Window.height - (y + height * (0.25 if up else 0.75))
+        end_y = origin.y + Window.height - (y + height * (0.75 if up else 0.25))
+        screen_x = round(origin.x + x + width * 0.75)
+
+        def gesture():
+            try:
+                api.SetCursorPos(screen_x, round(start_y))
+                time.sleep(0.08)
+                api.mouse_event(0x0002, 0, 0, 0, 0)
+                started = time.perf_counter()
+                for i in range(1, 97):
+                    deadline = started + i / 120
+                    time.sleep(max(0, deadline - time.perf_counter()))
+                    api.SetCursorPos(
+                        screen_x, round(start_y + (end_y - start_y) * i / 96)
+                    )
+                api.mouse_event(0x0004, 0, 0, 0, 0)
+            except Exception:
+                self.drag_error = traceback.format_exc()
+
+        threading.Thread(target=gesture, daemon=True).start()
+
+    def scenario(self):
+        # The unmodified selection screen is long enough for reproducible
+        # down/up gestures. Do not inject model values or call scroll_to.
+        for _ in range(4):
+            self.drag(False)
+            yield 2.1
+            self.drag(True)
+            yield 2.1
+        self.debug.scroll_observer.metrics.finish()
+        yield 0.3
+
+    def finish(self):
+        summary = self.debug.scroll_observer.summary()
+        measured = summary['measured_gesture_count']
+        result = {
+            'status': 'MEASURED' if not self.failure and measured >= 6 else 'FAIL',
+            'source_commit': subprocess.check_output(
+                ['git', 'rev-parse', 'HEAD'], text=True
+            ).strip(),
+            'platform': 'windows',
+            'failure': self.failure,
+            'scroll_summary': summary,
+            'scope': 'Isolated Windows runner OS input; GL flip proxy; not Samsung device.',
+        }
+        for name, value in [
+            ('result.json', result),
+            ('events.json', self.debug.journal.events()),
+        ]:
+            with (OUT / name).open('x', encoding='utf-8', newline='\n') as f:
+                json.dump(value, f, ensure_ascii=False, indent=2)
+        Window.screenshot(name=str(OUT / 'after_gestures.png'))
+        self.stop()
+
+
+app = PerformanceProbe()
+app.run()
+result = json.loads((OUT / 'result.json').read_text(encoding='utf-8'))
+assert result['status'] == 'MEASURED', result

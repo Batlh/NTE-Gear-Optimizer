@@ -154,6 +154,8 @@ class ComparisonApp(App):
         rows = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(4))
         rows.bind(minimum_height=rows.setter('height'))
         self.selector_rows = []
+        if self.debug:
+            self.debug.scroll_observer.attach(scroll, 'selector:' + title)
 
         def select(value):
             if self.debug:

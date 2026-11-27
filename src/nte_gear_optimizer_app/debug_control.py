@@ -42,6 +42,11 @@ class DebugControl:
         self.journal = DebugJournal(private_log_directory(platform, android_files))
         self.performance = PerformanceTrace(self.journal.emit)
         Window.bind(on_flip=self.performance.frame)
+        from .scroll_observer import ScrollObserver
+
+        self.scroll_observer = ScrollObserver(
+            Window, Clock, platform, self.journal.emit
+        )
         self.metadata = build_metadata()
         self.bound = weakref.WeakSet()
         self.overlay = False
@@ -228,6 +233,7 @@ class DebugControl:
 
             widget.bind(text=changed)
         scroll = self.app.scroll
+        self.scroll_observer.attach(scroll, 'step' + str(self.app.vm.step + 1))
         if scroll not in self.bound:
             self.bound.add(scroll)
             scroll.bind(scroll_y=lambda *_: self.scroll_event())
@@ -251,6 +257,7 @@ class DebugControl:
         raws = list(raw_map.items())
         return {
             'timing_in_progress': self.performance.in_progress(),
+            'scroll_summary': self.scroll_observer.summary(),
             'step': vm.step,
             'character_id': vm.character_id,
             'ark_id': vm.ark_id,
@@ -371,6 +378,7 @@ class DebugControl:
             self.journal.exception(error, caught=True)
 
     def stop(self):
+        self.scroll_observer.stop()
         Window.unbind(on_flip=self.performance.frame)
         self.journal.flush_inputs(force=True)
         self.journal.emit('app_stop')

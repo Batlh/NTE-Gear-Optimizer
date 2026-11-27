@@ -31,7 +31,8 @@ def numeric_hint(value):
     except ValueUnavailable as error:
         return getattr(error, 'hint', T.MESSAGES['invalid'])
     if parsed is not None and (
-        re.search(r',\d{3}$', value.strip()) or ' ' in value.strip()
+        re.search(r',\d{3}$', value.strip())
+        or any(c in value.strip() for c in (' ', '\u00a0', '\u202f'))
     ):
         return 'übernommen als ' + parsed.replace('.', ',')
     return ''
@@ -42,7 +43,7 @@ def normalize(value):
         return None
     if not isinstance(value, str):
         raise ValueUnavailable('Eingabe', True)
-    value = value.strip()
+    value = value.replace('\u00a0', ' ').replace('\u202f', ' ').strip()
     if any(c.isspace() for c in value):
         if not re.fullmatch(r'[+-]?[0-9]{1,3}( [0-9]{3})+(,[0-9]+)?', value):
             raise InputFormatError(
@@ -58,6 +59,19 @@ def normalize(value):
         return None
     result = number(value)
     return '0' if result == 0 else text(result)
+
+
+ARK_LEVEL_HINT = 'Bitte ganze Zahl von 1 bis 80 eingeben (oder leer lassen)'
+
+
+def ark_level_hint(value):
+    value = value.strip()
+    if not value:
+        return ''
+    # ASCII integer syntax only; pasted emoji/Unicode numerals are not levels.
+    if not re.fullmatch(r'[0-9]{1,3}', value) or not 1 <= int(value) <= 80:
+        return ARK_LEVEL_HINT
+    return ''
 
 
 class ComparisonViewModel:
@@ -263,13 +277,14 @@ class ComparisonViewModel:
 
     def ark_summary(self):
         row = next((r for r in self.catalog['Arks'] if r['ArkID'] == self.ark_id), None)
+        if ark_level_hint(self.ark_level):
+            return T.MESSAGES['ark_invalid'] + ' · ' + ARK_LEVEL_HINT
         if row is None:
             return T.NO_CHOICE
         level = self.ark_level.strip()
-        if level and (not level.isdigit() or not 1 <= int(level) <= 80):
-            return T.MESSAGES['ark_invalid']
         if (
-            self.ark_level.strip() == '80'
+            level
+            and int(level) == 80
             and row['ArkID'] in self.catalog['Decisions']['R15-04']['arks']
         ):
             return (
@@ -642,7 +657,38 @@ class ComparisonViewModel:
                 else 1
             )
             groups[step].append(label + ': ' + hint)
-        return [(step, groups[step]) for step in groups if groups[step]]
+        if ark_level_hint(self.ark_level):
+            groups[0].append('Ark-Level: ' + ARK_LEVEL_HINT + ' (nicht übernommen)')
+        merged = {}
+        for step, messages in groups.items():
+            combined = {}
+            for message in messages:
+                # Use the longest known label first (e.g. scaling total vs
+                # scaling percentage); do not merge different fields.
+                field = next(
+                    (
+                        key
+                        for key, label in sorted(
+                            T.FIELD_LABELS.items(), key=lambda pair: -len(pair[1])
+                        )
+                        if label in message
+                    ),
+                    None,
+                )
+                if field is None:
+                    combined.setdefault(('other', message), message)
+                    continue
+                label = T.field_label(field, r['input_scaling'], parts=step == 2)
+                message = message.replace(T.FIELD_LABELS[field], '').strip(' :')
+                key = ('field', field)
+                # Keep separate part-side evidence in a single field row.
+                if key in combined:
+                    if message not in combined[key]:
+                        combined[key] += ' | ' + message
+                else:
+                    combined[key] = label + ': ' + message
+            merged[step] = list(combined.values())
+        return [(step, messages) for step, messages in merged.items() if messages]
 
     def clarification_display(self):
         r = self.last_result or self.calculate()
@@ -744,7 +790,7 @@ class ComparisonViewModel:
                 count += 1
         if not count:
             lines.append(T.NO_CHANGES)
-        if engine.get('OutputStatus') != 'READY':
+        if engine.get('OutputStatus') != 'READY' and engine.get('Verdict') is not None:
             lines.append(
                 T.STATUS_HINTS.get(
                     engine.get('OutputStatus'), T.MESSAGES['status_unknown']

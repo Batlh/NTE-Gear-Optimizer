@@ -1,8 +1,6 @@
 name: phase2a3-cause-before-fix
 on:
-  push:
-    branches: [v029-phase2a]
-    paths: [tools/a3_cause_desktop.py, tools/a3_cause_android.py, tools/a3_fetch_probe_apk.py, src/nte_gear_optimizer_app/diagnostic_trace.py, .github/workflows/phase2a3-cause.yml]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -16,6 +14,8 @@ jobs:
       KIVY_NO_ARGS: '1'
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: 50ea5cfc0ecc6c8e59bbdaf985198df8aeddbbe9
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: '3.14.10'
@@ -41,6 +41,8 @@ jobs:
       actions: read
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: 50ea5cfc0ecc6c8e59bbdaf985198df8aeddbbe9
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: '3.14.10'

@@ -6,12 +6,15 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tarfile
 import time
 import zipfile
 
 assert os.environ.get('GITHUB_ACTIONS') == 'true'
 repo = 'Batlh/NTE-Gear-Optimizer'
+artifact_name = sys.argv[1] if len(sys.argv) > 1 else 'android-emulator-only-apk'
+expected_probe = artifact_name == 'android-emulator-only-apk'
 out = Path('build/a3_download')
 out.mkdir(parents=True, exist_ok=True)
 seen = set()
@@ -21,7 +24,7 @@ for attempt in range(50):
             [
                 'gh',
                 'api',
-                f'repos/{repo}/actions/artifacts?name=android-emulator-only-apk&per_page=20',
+                f'repos/{repo}/actions/artifacts?name={artifact_name}&per_page=20',
             ]
         )
     )
@@ -53,16 +56,60 @@ for attempt in range(50):
                 fileobj=io.BytesIO(z.read('assets/private.tar')), mode='r:*'
             ) as t:
                 metadata = json.load(t.extractfile('BUILD_METADATA.json'))
-        differences = [
+
+        def staged(p):
+            return not any(
+                '_REV_' in part or '_INTERMEDIATE_' in part or part == '__pycache__'
+                for part in p.parts
+            ) and p.suffix not in ('.pyc', '.ico', '.svg')
+
+        expected = {
+            p.relative_to('src').as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+            for package in ['nte_gear_optimizer', 'nte_gear_optimizer_app']
+            for p in (Path('src') / package).rglob('*')
+            if p.is_file() and staged(p)
+        }
+        for name in ['main.py', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'HANDYTEST_2A.md']:
+            expected[name] = hashlib.sha256(Path(name).read_bytes()).hexdigest()
+        expected['DATA_SOURCES.md'] = hashlib.sha256(
+            Path('data/SOURCES.md').read_bytes()
+        ).hexdigest()
+        for p in Path('third_party_licenses').rglob('*'):
+            if p.is_file() and staged(p):
+                expected[p.as_posix()] = hashlib.sha256(p.read_bytes()).hexdigest()
+        actual = metadata['files']
+        differences = sorted(
             name
-            for name, digest in metadata['files'].items()
-            if name.startswith(('nte_gear_optimizer/', 'nte_gear_optimizer_app/'))
-            and hashlib.sha256((Path('src') / name).read_bytes()).hexdigest() != digest
-        ]
+            for name in expected.keys() | actual.keys()
+            if expected.get(name) != actual.get(name)
+        )
+        build_names = (
+            subprocess.check_output(
+                [
+                    'git',
+                    'ls-files',
+                    'buildozer.spec',
+                    'requirements-android.txt',
+                    'android',
+                    'build_recipes',
+                    'tools/configure_android_ci.py',
+                    'tools/stage_android.py',
+                    'tools/sign_android.py',
+                ]
+            )
+            .decode('utf-8')
+            .splitlines()
+        )
+        expected_build = {
+            name: hashlib.sha256((Path(name)).read_bytes()).hexdigest()
+            for name in build_names
+        }
+        if metadata.get('build_inputs') != expected_build:
+            differences.append('native build-input manifest')
         if differences:
             print('Waiting for matching runtime; older artifact', item['id'])
             continue
-        assert metadata['emulator_test_only'] is True
+        assert metadata['emulator_test_only'] is expected_probe
         Path('build/a3_probe_apk.json').write_text(
             json.dumps(
                 {

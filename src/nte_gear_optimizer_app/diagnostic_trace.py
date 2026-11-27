@@ -1,6 +1,8 @@
 """Observational input routing trace; never changes event results or focus."""
 
 import time
+import weakref
+from collections import deque
 
 
 class InputTrace:
@@ -9,8 +11,8 @@ class InputTrace:
         self.sink = sink
         self.sequence = 0
         self.started = time.monotonic_ns()
-        self.events = []
-        self.attached = set()
+        self.events = deque(maxlen=2000)
+        self.attached = weakref.WeakSet()
 
     def emit(self, event, **data):
         self.sequence += 1
@@ -55,9 +57,14 @@ class InputTrace:
             'uid': widget.uid,
             'field': field,
             'in_white_subtree': getattr(self.app, 'white_box', None) in ancestors,
+            'depth': len(ancestors),
             'label': str(getattr(widget, 'text', ''))[:120],
             'enabled': not widget.disabled,
-            'tree_visible': all(
+            'tree_visible': (
+                getattr(self.app, 'root_box', None) in ancestors
+                or getattr(self.app, 'root_window', None) in ancestors
+            )
+            and all(
                 getattr(w, 'opacity', 1) > 0
                 and getattr(w, 'height', 1) > 0
                 and getattr(w, 'width', 1) > 0
@@ -68,9 +75,9 @@ class InputTrace:
 
     def attach_tree(self, root):
         for widget in root.walk():
-            if widget.uid in self.attached:
+            if widget in self.attached:
                 continue
-            self.attached.add(widget.uid)
+            self.attached.add(widget)
             original = widget.on_touch_down
 
             def traced(touch, original=original, widget=widget):

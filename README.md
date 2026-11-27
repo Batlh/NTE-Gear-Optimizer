@@ -14,7 +14,10 @@ Phase 1B-1 adds the pure comparison core: branch-bound profiles, scoped validati
 panel channels, static factors, robust unknown/branch evaluation, guide reference
 alignment and recommendations. Display-only Lv80 projection and the separate
 heuristic item scorer are included. Phase 2A adds a German four-step Kivy app for Windows and Android debug tests.
-There is no user-data import/export or persistent storage. This is a review
+There is no build/inventory import/export or saved-build feature. Test builds
+keep a bounded, offline diagnostic journal in private app storage. The Debug
+menu exports a report only after a privacy notice and your explicit action;
+the app does not send it over the network. This is a review
 candidate, not a release. Launch with `python main.py` after installing
 `requirements-app.txt`; device test instructions are in HANDYTEST_2A.md.
 
@@ -40,7 +43,10 @@ Validierung, Panelkanäle, statische Faktoren, robuste Auswertung unbekannter
 Faktoren und Zweige sowie Guide-Bezugsbasis und Empfehlungen. Die reine
 Lv80-Anzeigeprojektion und die getrennte heuristische Teilebewertung sind enthalten.
 Phase 2A ergänzt eine deutsche Kivy-App mit vier Schritten für Windows und
-Android-Debugtests. Es gibt kein Speichern und kein Import-/Export-Modul.
+Android-Debugtests. Es gibt kein Speichern von Builds und kein Import-/Export-Modul
+für Builds oder Inventar. Test-Builds führen ein begrenztes lokales Fehlerprotokoll
+im App-Speicher. Das Debug-Menü gibt einen Bericht erst nach Datenschutzhinweis
+und deinem ausdrücklichen Klick weiter; die App sendet nichts ins Netz.
 Dieser Stand ist ein Review-Kandidat, kein Release. Nach Installation von
 `requirements-app.txt` startet `python main.py` die App. Der Handytest steht
 in HANDYTEST_2A.md.

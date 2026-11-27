@@ -23,5 +23,15 @@
     "File": "OpenSSL_APACHE2.txt",
     "URL": "https://raw.githubusercontent.com/openssl/openssl/openssl-3.5.0/LICENSE.txt",
     "SHA256": "7D5450CB2D142651B8AFA315B5F238EFC805DAD827D91BA367D8516BC9D49E7A"
+  },
+  {
+    "File": "AndroidX_APACHE2.txt",
+    "URL": "https://raw.githubusercontent.com/androidx/androidx/androidx-main/LICENSE.txt",
+    "SHA256": "809FA1ED21450F59827D1E9AEC720BBC4B687434FA22283C6CB5DD82A47AB9C0"
+  },
+  {
+    "File": "Kotlin_APACHE2.txt",
+    "URL": "https://raw.githubusercontent.com/JetBrains/kotlin/v1.8.22/license/LICENSE.txt",
+    "SHA256": "CFC7749B96F63BD31C3C42B5C471BF756814053E847C10F3EB003417BC523D30"
   }
 ]

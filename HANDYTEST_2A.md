@@ -74,3 +74,22 @@ lassen. Keine gespeicherten Nutzerdaten vorhanden; Eingaben gelten je Sitzung.
 - Kiwi statt altem Platzhalter als App-Symbol prüfen.
 - Die drei bisherigen Vergleichsfälle erneut prüfen. Samsung-Tastatur und
   Gerätesystem notieren; Emulator-Ergebnis ersetzt diesen Gerätetest nicht.
+
+
+## Ergänzung 2A-3
+
+- Das signierte Test-Update über 2A-2 installieren, ohne die App zu deinstallieren.
+- ANG und Krit wählen. In Schritt 3 auch das unterste Feldpaar antippen und ausfüllen.
+- Bei offener Tastatur nacheinander nach unten, nach oben und links/rechts wechseln.
+  Die Tastatur bleibt offen, und jeder Wert landet im gewählten Feld. Dasselbe
+  Feld zweimal kurz antippen; danach weitertippen. Mit Samsung-Tastatur prüfen.
+- Einseitige Feldhilfe auslösen: Beide Eingabefelder bleiben oben bündig.
+- Ark-Level mit und ohne gewählte Ark: 80,8 / 80.8 / 80 8 / 80ü8 / 80😝8 /
+  0 / 81 / -1 / abc müssen eine unmittelbare Hilfe zeigen. 080 / 80 / 1 und
+  leer sind zulässig. Ein ungültiges Level sperrt keine unabhängige Rechnung.
+- In ein normales Zahlenfeld 25😝60 einfügen: Hilfe, keine Übernahme, kein Absturz.
+- Debug öffnen, Touch-Diagnose aktivieren, einige Eingaben machen und einen
+  Bericht exportieren. Nach dem Datenschutzhinweis das System-Teilen-Menü oder
+  „In Downloads speichern“ benutzen. Die lesbare Datei muss Eingaben, Auswahl,
+  Fokus/Tastatur, Touch-Verbraucher und das Ergebnis enthalten. Kein automatischer
+  Versand. „Protokoll leeren“ muss zunächst eine Rückfrage zeigen.

@@ -1,4 +1,4 @@
-"""Desktop/Android entry point; no saving or export UI."""
+"""Desktop/Android entry point; debug reports are exported only on request."""
 
 import sys
 import os

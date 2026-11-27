@@ -33,9 +33,9 @@ DATA_SOURCES.md in bundles (data/SOURCES.md in the repository).
   components brought by a wheel retain their own license; no third-party
   component is relicensed under our MIT license. Preserve the supplied notices.
 
-The bundles carry exact file inventories. The build uses no release key,
-signing secret or GitHub secret. Android uses only an automatically generated
-debug signature; no keystore is distributed. Android device runtime is subject
+The bundles carry exact file inventories. The phone-test APK is signed in CI with the existing project test key.
+Signing passwords and the keystore are never distributed. The isolated x86
+emulator probe uses its separate CI debug signature. Android device runtime is subject
 to the user's later phone test, not asserted by a successful APK build.
 
 ## Phase 2A-1 UI font
@@ -45,3 +45,13 @@ The complete Bitstream Vera/DejaVu license notices are included as
 third_party_licenses/DejaVu_LICENSE.txt and assets/LICENSE_DEJAVU.txt.
 It covers the required bidirectional arrow; the earlier Roboto file and its
 Apache2 license remain preserved, but the UI now selects DejaVu Sans.
+
+
+## Phase 2A-3 offline diagnostic sharing
+
+AndroidX Core 1.15.0 provides the restricted FileProvider. AndroidX runtime
+components and their Kotlin dependencies retain Apache License 2.0, not our
+MIT grant; see AndroidX_APACHE2.txt and Kotlin_APACHE2.txt in
+third_party_licenses. Exact CI dependency resolution is retained with the build.
+The provider exposes only the app-cache debug_reports directory, only after
+an explicit sharing action. No network or storage permission is added.

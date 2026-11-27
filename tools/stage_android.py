@@ -31,6 +31,26 @@ import json, subprocess, hashlib
 info = {
     'emulator_test_only': __import__('os').environ.get('NTE_ANDROID_ABI') == 'x86_64',
     'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip(),
+    'build_inputs': {
+        name: hashlib.sha256(
+            subprocess.check_output(['git', 'show', 'HEAD:' + name])
+        ).hexdigest()
+        for name in subprocess.check_output(
+            [
+                'git',
+                'ls-files',
+                'buildozer.spec',
+                'requirements-android.txt',
+                'android',
+                'build_recipes',
+                'tools/configure_android_ci.py',
+                'tools/stage_android.py',
+                'tools/sign_android.py',
+            ]
+        )
+        .decode('utf-8')
+        .splitlines()
+    },
     'files': {
         p.relative_to(target).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
         for p in target.rglob('*')

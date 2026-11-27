@@ -15,6 +15,19 @@ binary_args = []
 for folder in angle.dep_bins + sdl2.dep_bins:
     for dll in sorted(Path(folder).glob('*.dll')):
         binary_args.extend(['--add-binary', str(dll) + os.pathsep + '.'])
+metadata = root / 'build/BUILD_METADATA.json'
+metadata.parent.mkdir(parents=True, exist_ok=True)
+with metadata.open('x', encoding='utf-8', newline='\n') as target:
+    json.dump(
+        {
+            'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'])
+            .decode()
+            .strip(),
+            'app_version': '0.29.0 Phase 2A-3 (Test)',
+            'emulator_test_only': False,
+        },
+        target,
+    )
 subprocess.run(
     [
         sys.executable,
@@ -33,6 +46,8 @@ subprocess.run(
         *binary_args,
         '--hidden-import',
         'kivy_deps.angle',
+        '--add-data',
+        str(metadata) + os.pathsep + '.',
         '--collect-data',
         'kivy',
         '--collect-binaries',

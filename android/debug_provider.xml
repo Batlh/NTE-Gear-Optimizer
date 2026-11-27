@@ -1,0 +1,8 @@
+<provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:name="io.github.batlh.nte_gear_optimizer.DebugFileProvider"
+    android:authorities="io.github.batlh.nte_gear_optimizer.debugfiles"
+    android:exported="false"
+    android:grantUriPermissions="true">
+    <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+        android:resource="@xml/nte_debug_paths" />
+</provider>

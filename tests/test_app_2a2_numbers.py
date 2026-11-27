@@ -18,9 +18,7 @@ def test_visible_interpretation(raw, expected, hint):
     assert numeric_hint(raw) == hint
 
 
-@pytest.mark.parametrize(
-    'raw', ['1 5', '12 34', '1 234 56', '1\t234', '1\u00a0234', '1 234.5']
-)
+@pytest.mark.parametrize('raw', ['1 5', '12 34', '1 234 56', '1\t234', '1 234.5'])
 def test_malformed_spaces_are_local_help(raw):
     with pytest.raises(InputFormatError):
         normalize(raw)

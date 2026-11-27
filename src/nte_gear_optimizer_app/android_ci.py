@@ -34,6 +34,8 @@ def install_probe(app):
                 'NTE_A3_EVENT=' + json.dumps(row, ensure_ascii=True), flush=True
             ),
         )
+        if activity.getIntent().getBooleanExtra('nte_a3_test_exception', False):
+            app.debug.test_exception()
         trace.attach_window(Window)
         trace.attach_tree(app.root_box)
         original_render = app.render
@@ -137,6 +139,21 @@ def install_probe(app):
             'back': rect(app.back_button),
         }
         if a3:
+            state['debug_button'] = rect(app.debug_button)
+            state['zeros'] = [rect(widget) for widget in app.zero_buttons]
+            state['jumps'] = {
+                str(step): rect(widget) for step, widget in app.jump_buttons.items()
+            }
+            state['result'] = app.vm.last_result
+            state['input_hints'] = {
+                ':'.join(key): widget.text for key, widget in app.input_hints.items()
+            }
+            if app.active_debug:
+                popup, buttons = app.active_debug
+                state['debug'] = {
+                    'bounds': rect(popup),
+                    'buttons': {label: rect(w) for label, w in buttons.items()},
+                }
             try:
                 state['native_surface'] = native_surface()
                 state['input_visibility'] = {

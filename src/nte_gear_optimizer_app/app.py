@@ -28,7 +28,7 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.modalview import ModalView
 from kivy.graphics import Color, Rectangle
 from kivy.uix.textinput import TextInput
-from .viewmodel import ComparisonViewModel, numeric_hint
+from .viewmodel import ComparisonViewModel, numeric_hint, ark_level_hint
 from . import texts as T
 
 FONT = str(files('nte_gear_optimizer_app').joinpath('assets/DejaVuSans.ttf'))
@@ -53,6 +53,11 @@ class ComparisonApp(App):
         self.show_all_values = False
         self.input_hints = {}
         self.active_selector = None
+        self.active_debug = None
+        self.debug = None
+        self.keyboard_session = None
+        self.active_touches = set()
+        self.focus_scroll_event = None
 
     def label(self, text, size=17):
         label = Label(
@@ -113,6 +118,10 @@ class ComparisonApp(App):
 
     def open_selector(self, title, entries, callback):
         self.dismiss_keyboard()
+        if self.debug:
+            self.debug.journal.emit(
+                'selector_open', selector=title, current=self.selector_specs[title][1]
+            )
         popup = ModalView(
             size_hint=(0.96, 0.90),
             auto_dismiss=False,
@@ -136,6 +145,20 @@ class ComparisonApp(App):
         self.selector_rows = []
 
         def select(value):
+            if self.debug:
+                current = self.selector_specs[title][1]
+                self.debug.journal.emit(
+                    'selection',
+                    selector=title,
+                    old_id=current,
+                    new_id=value,
+                    old_name=next(
+                        (name for name, key in entries if key == current), None
+                    ),
+                    new_name=next(
+                        (name for name, key in entries if key == value), None
+                    ),
+                )
             popup.dismiss()
             self.active_selector = None
             callback(value)
@@ -146,21 +169,67 @@ class ComparisonApp(App):
             self.selector_rows.append((value, name, button))
         scroll.add_widget(rows)
         layout.add_widget(scroll)
-        cancel = self.button(
-            'Abbrechen',
-            lambda: (popup.dismiss(), setattr(self, 'active_selector', None)),
-        )
+
+        def cancel_selection():
+            if self.debug:
+                current = self.selector_specs[title][1]
+                self.debug.journal.emit(
+                    'selection_cancel',
+                    selector=title,
+                    old_id=current,
+                    new_id=current,
+                    name=next((name for name, key in entries if key == current), None),
+                )
+            popup.dismiss()
+            self.active_selector = None
+
+        cancel = self.button('Abbrechen', cancel_selection)
         layout.add_widget(cancel)
         popup.add_widget(layout)
         self.active_selector = (title, popup, scroll, cancel)
         popup.open()
+        if self.debug:
+            self.debug.trace.attach_tree(popup)
 
     def dismiss_keyboard(self):
         for widget in self.inputs.values():
             widget.focus = False
+        if self.keyboard_session:
+            self.keyboard_session.close()
+
+    def observe_touch_lifetime(self, window, kind, touch):
+        if kind == 'begin':
+            self.active_touches.add(touch.uid)
+        elif kind == 'end':
+            self.active_touches.discard(touch.uid)
+        return False
+
+    def focus_scroll(self, widget, focused):
+        if not focused:
+            return
+        if self.focus_scroll_event is not None:
+            self.focus_scroll_event.cancel()
+
+        def after_touch(dt):
+            if not widget.focus or widget.parent is None:
+                return
+            if self.active_touches:
+                self.focus_scroll_event = Clock.schedule_once(after_touch, 0.03)
+                return
+            # No animation: a cursor must not move under a short tap or while
+            # the next text events are already arriving from the native IME.
+            self.scroll.scroll_to(widget, padding=dp(24), animate=False)
+            if self.debug:
+                self.debug.journal.emit(
+                    'focus_scroll_after_touch_end',
+                    widget=self.debug.trace.describe(widget),
+                )
+
+        self.focus_scroll_event = Clock.schedule_once(after_touch, 0)
 
     def text_input(self, group, field, value):
         widget = TextInput(
+            keyboard_mode='managed' if KIVY_PLATFORM == 'android' else 'auto',
             text=value or '',
             multiline=False,
             font_name='NTEText',
@@ -172,18 +241,12 @@ class ComparisonApp(App):
             # let the global touch-up focus handler immediately close its IME.
             # Selection of another field and Done/navigation still dismiss it.
             unfocus_on_touch=False,
-            input_type='text',
+            input_type='number' if group == 'level' else 'text',
         )
         widget.bind(on_text_validate=lambda field: setattr(field, 'focus', False))
-        widget.bind(
-            focus=lambda field, focused: (
-                Clock.schedule_once(
-                    lambda dt: self.scroll.scroll_to(field, padding=dp(24)), 0.25
-                )
-                if focused
-                else None
-            )
-        )
+        if self.keyboard_session:
+            widget.bind(focus=self.keyboard_session.focus_changed)
+        widget.bind(focus=self.focus_scroll)
         if group == 'white':
             widget.bind(
                 text=lambda _, value: setattr(self.vm, 'white_panel_base', value)
@@ -193,7 +256,9 @@ class ComparisonApp(App):
         else:
             widget.bind(text=lambda _, value: self.input_changed(group, field, value))
         self.inputs[(group, field)] = widget
-        box = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(50))
+        box = BoxLayout(
+            orientation='vertical', size_hint_y=None, height=dp(50), pos_hint={'top': 1}
+        )
         hint = Label(
             text='',
             font_name='NTEText',
@@ -211,7 +276,9 @@ class ComparisonApp(App):
             box.height = dp(50) + hint.height
 
         def validate(_, value):
-            hint.text = numeric_hint(value) if group != 'level' else ''
+            hint.text = (
+                numeric_hint(value) if group != 'level' else ark_level_hint(value)
+            )
             resize()
 
         hint.bind(texture_size=resize)
@@ -228,18 +295,39 @@ class ComparisonApp(App):
             self.update_white_visibility()
 
     def update_white_visibility(self):
-        if self.white_box is not None:
-            needed = self.vm.needs_white_base()
-            self.white_box.height = (
-                max(dp(112), self.white_box.minimum_height) if needed else 0
-            )
-            self.white_box.opacity = 1 if needed else 0
-            self.white_box.disabled = not needed
+        if self.white_box is None:
+            return
+        needed = self.vm.needs_white_base()
+        if needed:
+            self.white_box.height = max(dp(112), self.white_box.minimum_height)
+            if self.white_box.parent is None:
+                anchor = getattr(self, 'white_anchor', None)
+                index = (
+                    self.body.children.index(anchor) + 1
+                    if anchor in self.body.children
+                    else 0
+                )
+                self.body.add_widget(self.white_box, index=index)
+        elif self.white_box.parent is self.body:
+            for key, widget in self.inputs.items():
+                if key[0] == 'white':
+                    widget.focus = False
+            self.body.remove_widget(self.white_box)
 
     def build(self):
         Window.softinput_mode = 'below_target'
         Window.clearcolor = (0.065, 0.085, 0.11, 1)
         self.root_box = BoxLayout(orientation='vertical', padding=dp(16), spacing=dp(8))
+        from .debug_control import DebugControl
+
+        self.debug = DebugControl(self)
+        if KIVY_PLATFORM == 'android':
+            from .keyboard_session import KeyboardSession
+
+            self.keyboard_session = KeyboardSession(
+                Window, Clock, self.debug.journal.emit
+            )
+        Window.bind(on_motion=self.observe_touch_lifetime)
         self.root_box.add_widget(self.label(T.LOGO + '   ' + T.TITLE, 23))
         self.root_box.add_widget(self.label(T.SUBTITLE, 14))
         self.progress = self.label('', 20)
@@ -266,19 +354,36 @@ class ComparisonApp(App):
                 14,
             )
         )
+        self.debug_button = self.button('Debug', self.debug.menu)
+        self.debug_button.height = dp(34)
+        self.root_box.add_widget(self.debug_button)
         self.render()
         return self.root_box
 
     def go_back(self):
         self.dismiss_keyboard()
+        before = self.vm.step
         self.vm.back()
+        if self.debug:
+            self.debug.journal.flush_inputs(force=True)
+            self.debug.journal.emit(
+                'step', action='back', before=before, after=self.vm.step
+            )
         self.render()
 
     def go_next(self):
         self.dismiss_keyboard()
+        before = self.vm.step
         self.vm.next()
+        if self.debug:
+            self.debug.journal.flush_inputs(force=True)
+            self.debug.journal.emit(
+                'step', action='next', before=before, after=self.vm.step
+            )
         if self.vm.step == 3:
             self.vm.calculate()
+            if self.debug:
+                self.debug.result()
         self.render()
 
     def change(self, method, value):
@@ -298,6 +403,7 @@ class ComparisonApp(App):
         self.inputs = {}
         self.input_hints = {}
         self.white_box = None
+        self.white_anchor = None
         self.zero_buttons = []
         self.progress.text = T.STEPS[self.vm.step]
         self.scroll.scroll_y = 1
@@ -360,8 +466,15 @@ class ComparisonApp(App):
                     self.label(self.vm.details_display(self.show_all_values))
                 )
 
+        if self.debug:
+            self.debug.attach()
+            self.debug.journal.emit('screen', step=self.vm.step)
+
     def jump_to(self, step):
+        before = self.vm.step
         self.vm.jump_to(step)
+        if self.debug:
+            self.debug.journal.emit('step', action='jump', before=before, after=step)
         self.render()
 
     def toggle_clarification(self):
@@ -486,6 +599,8 @@ class ComparisonApp(App):
 
     def zero(self, name, parts):
         self.vm.zero_group(name, parts)
+        if self.debug:
+            self.debug.journal.emit('zero_bonus', group=name, parts=parts)
         self.render()
 
     def values_screen(self, parts=False):
@@ -535,12 +650,29 @@ class ComparisonApp(App):
             self.white_box.add_widget(
                 self.text_input('white', 'WhitePanelBase', self.vm.white_panel_base)
             )
-            self.body.add_widget(self.white_box)
-            self.update_white_visibility()
         if not self.vm.fields():
             self.body.add_widget(self.label(T.UI['missing_profile']))
         if parts:
-            self.body.add_widget(self.label(T.UI['parts_hint']))
+            self.white_anchor = self.label(T.UI['parts_hint'])
+            self.body.add_widget(self.white_anchor)
+            self.update_white_visibility()
+
+    def on_pause(self):
+        self.dismiss_keyboard()
+        self.active_touches.clear()
+        if self.debug:
+            self.debug.journal.flush_inputs(force=True)
+            self.debug.journal.emit('app_pause')
+        return True
+
+    def on_resume(self):
+        if self.debug:
+            self.debug.journal.emit('app_resume')
+
+    def on_stop(self):
+        self.dismiss_keyboard()
+        if self.debug:
+            self.debug.stop()
 
     def on_start(self):
         from kivy.utils import platform

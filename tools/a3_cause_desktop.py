@@ -103,7 +103,7 @@ class CauseProbe(ComparisonApp):
     def finish(self):
         for name, value in [
             ('result.json', self.result),
-            ('events.json', self.trace.events),
+            ('events.json', list(self.trace.events)),
         ]:
             with (out / name).open('x', encoding='utf-8', newline='\n') as f:
                 json.dump(value, f, ensure_ascii=False, indent=2)
@@ -143,7 +143,7 @@ class CauseProbe(ComparisonApp):
         self.click(target)
         yield 1
         accepted = [
-            r for r in self.trace.events[begin:] if r['event'] == 'touch_accepted'
+            r for r in list(self.trace.events)[begin:] if r['event'] == 'touch_accepted'
         ]
         hidden = [
             r

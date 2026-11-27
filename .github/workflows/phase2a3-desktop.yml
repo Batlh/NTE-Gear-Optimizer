@@ -2,7 +2,7 @@ name: phase2a3-desktop-fields
 on:
   push:
     branches: [v029-phase2a]
-    paths: [src/nte_gear_optimizer_app/**, tools/a3_desktop_fields.py, .github/workflows/phase2a3-desktop.yml]
+    paths: [src/nte_gear_optimizer_app/**, tools/a3_desktop_fields.py, tools/a4_design_geometry.py, .github/workflows/phase2a3-desktop.yml]
 permissions:
   contents: read
 jobs:

@@ -11,14 +11,18 @@ from kivy.metrics import dp
 rows = []
 for widget in (DesignButton(), DesignTextInput()):
     widget.size = (dp(260), dp(52))
+    # Line's getter reflects the last rendered/prebuilt geometry, not its setter.
+    widget.canvas.draw()
     geometry = tuple(widget.edge.rounded_rectangle)
     fill_pos = tuple(widget.fill.pos)
     for x, y in ((10, 20), (37, 91), (401, -533), (0, 0)):
         widget.pos = (x, y)
+        widget.canvas.draw()
         assert tuple(widget.edge.rounded_rectangle) == geometry
         assert tuple(widget.fill.pos) == fill_pos == (0, 0)
         assert widget.decoration_position.x == x and widget.decoration_position.y == y
     widget.width += dp(20)
+    widget.canvas.draw()
     assert tuple(widget.edge.rounded_rectangle) != geometry
     assert tuple(widget.fill.size) == tuple(widget.size)
     rows.append(

@@ -130,6 +130,41 @@ def open_list(label):
     return s
 
 
+def nudge_option(position, viewport, s):
+    # A full-page corrective swipe overshot the last row repeatedly in the
+    # captured ZERO failure. Correct only the measured clipped edge, using
+    # a genuine gesture larger than ScrollView's recognition threshold.
+    x, y, w, h = viewport
+    lower_gap = max(0, y - position[1])
+    upper_gap = max(0, position[1] + position[3] - (y + h))
+    threshold = s['modal']['scroll_distance']
+    distance = min(
+        h * 0.35, max(2 * threshold + 8, lower_gap + upper_gap + threshold + 8)
+    )
+    cx, cy = point(viewport, s)
+    direction = 1 if lower_gap > 0 else -1
+    adb(
+        'shell',
+        'input',
+        'swipe',
+        str(cx),
+        str(round(cy + direction * distance / 2)),
+        str(cx),
+        str(round(cy - direction * distance / 2)),
+        '600',
+    )
+    edge_corrections.append(
+        {
+            'row': position,
+            'viewport': viewport,
+            'lower_gap': lower_gap,
+            'upper_gap': upper_gap,
+            'distance': distance,
+            'actual_adb_gesture': True,
+        }
+    )
+
+
 def settled_option(expected):
     # Overscroll rebounds after adb swipe. Tap coordinates must refer to the
     # settled geometry, not an earlier snapshot taken during that rebound.
@@ -154,12 +189,7 @@ def settled_option(expected):
                 return s, row
             # Rebound can settle a few pixels before the edge. A real user
             # can swipe again; do that rather than tapping a clipped option.
-            viewport = modal['scroll']
-            swipe(
-                viewport,
-                s,
-                reverse=position[1] + position[3] > viewport[1] + viewport[3],
-            )
+            nudge_option(position, modal['scroll'], s)
             stable = 0
             previous = None
     raise AssertionError('Option geometry did not settle: ' + str(expected))
@@ -182,13 +212,13 @@ def choose(label, identifier=None, last=False):
         swipe(s['modal']['scroll'], s)
         s = fresh()
         row = next(r for r in s['modal']['rows'] if r['id'] == expected)
-        assert visible(row['rect'], s['modal']['scroll'])
     s, row = settled_option(expected)
     if last:
         screenshot('selection_' + str(len(evidence)))
         # Screenshot transport itself takes time; acquire settled coordinates
         # again before the actual tap. Never retry a wrong selection as PASS.
         s, row = settled_option(expected)
+    assert visible(row['rect'], s['modal']['scroll'])
     scrolled = s['modal']['scroll_y']
     tap(row['rect'], s)
     s = fresh()
@@ -209,8 +239,15 @@ def choose(label, identifier=None, last=False):
 
 
 evidence = []
+edge_corrections = []
 try:
-    apk = next(Path('emulator_apk/bin').glob('*.apk'))
+    probe_path = Path('build/a3_probe_apk.json')
+    probe = (
+        json.loads(probe_path.read_text(encoding='utf-8'))
+        if probe_path.exists()
+        else None
+    )
+    apk = Path(probe['apk']) if probe else next(Path('emulator_apk').rglob('*.apk'))
     import zipfile, tarfile, io, hashlib
 
     with zipfile.ZipFile(apk) as archive:
@@ -219,7 +256,8 @@ try:
         ) as package:
             metadata = json.load(package.extractfile('BUILD_METADATA.json'))
     assert metadata['commit'] == os.environ.get(
-        'NTE_EXPECTED_APP_COMMIT', os.environ['GITHUB_SHA']
+        'NTE_EXPECTED_APP_COMMIT',
+        probe['metadata']['commit'] if probe else os.environ['GITHUB_SHA'],
     )
     assert metadata['emulator_test_only'] is True
     for relative, digest in metadata['files'].items():
@@ -371,6 +409,13 @@ try:
         newline='\n',
     )
 finally:
+    (out / 'edge_corrections.json').write_text(
+        json.dumps(edge_corrections, indent=2), encoding='utf-8', newline='\n'
+    )
+    if 'probe' in globals() and probe:
+        (out / 'native_source_binding.json').write_text(
+            json.dumps(probe, indent=2), encoding='utf-8', newline='\n'
+        )
     (out / 'logcat.txt').write_text(adb('logcat', '-d'), encoding='utf-8', newline='\n')
     screenshot('last_state')
     try:

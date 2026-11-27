@@ -182,13 +182,15 @@ try:
     ui.adb('shell', 'input', 'keyevent', '66')
     s = ui.fresh()
     assert s['zeros']
-    ui.tap(s['zeros'][0], s)
+    rect, s = ui.reach(lambda s: s['zeros'][0], lambda s: s['page_scroll'])
+    ui.tap(rect, s)
     s = ui.fresh()
     ui.tap(s['next'], s)
     s = ui.fresh()
     assert s['step'] == 3 and s['result'] is not None
     assert '1' in s['jumps'], s['jumps']
-    ui.tap(s['jumps']['1'], s)
+    rect, s = ui.reach(lambda s: s['jumps']['1'], lambda s: s['page_scroll'])
+    ui.tap(rect, s)
     s = ui.fresh()
     assert s['step'] == 1
     ui.tap(s['debug_button'], s)

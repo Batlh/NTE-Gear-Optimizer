@@ -50,16 +50,90 @@ def outputs():
     }
 
 
+def colored_outputs():
+    import json
+
+    colors = json.loads(
+        (Path(__file__).resolve().parents[1] / 'design/design_tokens.json').read_text(
+            encoding='utf-8'
+        )
+    )['colors']
+
+    def rgb(name):
+        if name is None:
+            return None
+        v = colors[name].lstrip('#')
+        return tuple(int(v[i : i + 2], 16) for i in (0, 2, 4))
+
+    styles = {
+        'outline_normal': (12, 'surface', 'border'),
+        'outline_down': (12, 'surface2', 'accent'),
+        'primary_normal': (12, 'accent', None),
+        'primary_down': (12, 'accent_text', None),
+        'pill_normal': (24, 'surface', 'accent'),
+        'pill_down': (24, 'surface2', 'accent'),
+        'text_normal': (12, None, None),
+        'text_down': (12, 'surface2', None),
+        'input_normal': (10, 'background', 'border'),
+        'input_focus': (10, 'background', 'accent'),
+    }
+    results = {}
+    for style, (radius, fill, edge) in styles.items():
+        # Reuse the deterministic white alpha masks; compose each palette pair
+        # once into a single straight-alpha PNG. Runtime draws ONE native patch.
+        def pixels(data):
+            pos = 8
+            payload = b''
+            while pos < len(data):
+                n = struct.unpack('!I', data[pos : pos + 4])[0]
+                if data[pos + 4 : pos + 8] == b'IDAT':
+                    payload += data[pos + 8 : pos + 8 + n]
+                pos += n + 12
+            return zlib.decompress(payload)
+
+        outer = pixels(png(radius, False))
+        ring = pixels(png(radius, True))
+        side = (radius * 2 + 3) * 4
+        raw = bytearray()
+        f = rgb(fill)
+        e = rgb(edge)
+        for y in range(side):
+            raw.append(0)
+            for x in range(side):
+                i = y * (1 + side * 4) + 1 + x * 4 + 3
+                a = outer[i] / 255
+                ea = ring[i] / 255 if e else 0
+                fa = (a - ea) if e else a
+                if f is None:
+                    fa = 0
+                alpha = fa + ea
+                channels = tuple(
+                    round(((f[c] if f else 0) * fa + (e[c] if e else 0) * ea) / alpha)
+                    if alpha
+                    else 0
+                    for c in range(3)
+                )
+                raw.extend((*channels, round(alpha * 255)))
+        data = (
+            b'\x89PNG\r\n\x1a\n'
+            + chunk(b'IHDR', struct.pack('!IIBBBBB', side, side, 8, 6, 0, 0, 0))
+            + chunk(b'IDAT', zlib.compress(raw, 9))
+            + chunk(b'IEND', b'')
+        )
+        results[style + '.png'] = data
+    return results
+
+
 if __name__ == '__main__':
     out = (
         Path(__file__).resolve().parents[1]
         / 'src/nte_gear_optimizer_app/assets/ui_masks'
     )
     out.mkdir(parents=True, exist_ok=True)
-    for name, data in outputs().items():
+    for name, data in (outputs() | colored_outputs()).items():
         p = out / name
         if p.exists():
             assert p.read_bytes() == data, p
         else:
             p.write_bytes(data)
-    print('Own deterministic round UI masks verified')
+    print('Own deterministic round UI masks and native palette patches verified')

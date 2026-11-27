@@ -1,120 +1,78 @@
-"""Constant-size nine-slice decorations; no overlay widgets intercept input."""
+"""Use Kivy's own single-background control path with token-colored nine-slices."""
 
 from importlib.resources import files
-from kivy.graphics import Color, Line, RoundedRectangle, InstructionGroup, BorderImage
+from kivy.graphics import Color, Line, RoundedRectangle, BorderImage
 from kivy.metrics import dp, sp
 from kivy.properties import StringProperty, NumericProperty
 from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.uix.widget import Widget
 from .reconcile_layout import ReconcileLayout
-from .design_tokens import rgba, TOKENS
+from .design_tokens import rgba
 
 
-def set_round_patch(patch, radius, kind):
-    # Source has4pixels/dp and a1dp stretchable center. Display borders use
-    # actual density, while texture slice borders remain source pixels.
-    patch.source = str(
-        files('nte_gear_optimizer_app').joinpath(
-            f'assets/ui_masks/round_{kind}_r{radius}.png'
-        )
-    )
-    patch.border = [(radius + 1) * 4] * 4
-    patch.display_border = [dp(radius + 1)] * 4
+def patch_source(style):
+    return str(files('nte_gear_optimizer_app').joinpath(f'assets/ui_masks/{style}.png'))
+
+
+def native_patch(canvas):
+    patches = [
+        instruction
+        for instruction in canvas.children
+        if isinstance(instruction, BorderImage)
+    ]
+    assert len(patches) == 1, 'Pinned Kivy2.3.2 control background changed'
+    return patches[0]
 
 
 class DesignButton(Button):
     role = StringProperty('outline')
 
     def __init__(self, **kwargs):
-        kwargs.setdefault('background_normal', '')
-        kwargs.setdefault('background_down', '')
-        kwargs.setdefault('background_color', (0, 0, 0, 0))
+        kwargs.setdefault('background_color', (1, 1, 1, 1))
         kwargs.setdefault('font_size', sp(16))
         super().__init__(**kwargs)
-        with self.canvas.before:
-            self.fill_color = Color(*rgba('surface'))
-            self.fill = BorderImage(
-                pos=self.pos, size=self.size, auto_scale='both_lower'
-            )
-            self.line_color = Color(*rgba('border'))
-            self.edge = BorderImage(
-                pos=self.pos, size=self.size, auto_scale='both_lower'
-            )
-        self.bind(
-            pos=self.geometry,
-            size=self.geometry,
-            state=self.style,
-            role=self.style,
-            disabled=self.style,
-        )
+        # Exactly the original Button BorderImage: no extra translucent
+        # full-area layers, tessellated outlines or per-control matrix stack.
+        self.fill = native_patch(self.canvas)
+        self.edge = self.fill
+        self.bind(state=self.style, role=self.style, disabled=self.style)
         self.style()
 
-    def geometry(self, *_):
-        self.fill.pos = self.edge.pos = self.pos
-        self.fill.size = self.edge.size = self.size
-
     def style(self, *_):
-        primary = self.role == 'primary'
-        pill = self.role == 'pill'
-        text = self.role == 'text'
-        fill = (
-            ('accent_text' if self.state == 'down' else 'accent')
-            if primary
-            else ('surface2' if self.state == 'down' else 'surface')
-        )
-        self.fill_color.rgba = (
-            rgba(fill) if not text or self.state == 'down' else (0, 0, 0, 0)
-        )
-        self.line_color.rgba = (
-            rgba('accent' if pill or self.state == 'down' else 'border')
-            if not text and not primary
-            else (0, 0, 0, 0)
-        )
+        role = self.role
+        primary = role == 'primary'
+        pill = role == 'pill'
+        self.background_normal = patch_source(role + '_normal')
+        self.background_down = patch_source(role + '_down')
+        self.background_disabled_normal = self.background_normal
+        self.background_disabled_down = self.background_down
+        radius = 24 if pill else 12
+        self.border = [(radius + 1) * 4] * 4
+        self.fill.display_border = [dp(radius + 1)] * 4
         self.color = rgba(
             'accent_ink' if primary else ('accent_text' if pill else 'text')
         )
         self.disabled_color = rgba('muted')
-        radius = 24 if pill else TOKENS['radii_dp']['button']
-        if radius != getattr(self, '_patch_radius', None):
-            self._patch_radius = radius
-            set_round_patch(self.fill, radius, 'fill')
-            set_round_patch(self.edge, radius, 'edge')
 
 
 class DesignTextInput(TextInput):
     def __init__(self, **kwargs):
         kwargs.update(
-            background_normal='',
-            background_active='',
-            background_color=(0, 0, 0, 0),
+            background_normal=patch_source('input_normal'),
+            background_active=patch_source('input_focus'),
+            background_color=(1, 1, 1, 1),
             foreground_color=rgba('text'),
             cursor_color=rgba('accent_text'),
             selection_color=(*rgba('accent')[:3], 0.3),
             padding=[dp(12), dp(12)],
+            border=[44] * 4,
         )
         super().__init__(**kwargs)
-        # Keep decorations before Kivy's cursor/foreground; no canvas overlay.
-        decoration = InstructionGroup()
-        decoration.add(Color(*rgba('background')))
-        self.fill = BorderImage(pos=self.pos, size=self.size, auto_scale='both_lower')
-        decoration.add(self.fill)
-        self.line_color = Color(*rgba('border'))
-        decoration.add(self.line_color)
-        self.edge = BorderImage(pos=self.pos, size=self.size, auto_scale='both_lower')
-        decoration.add(self.edge)
-        self.canvas.before.insert(0, decoration)
-        set_round_patch(self.fill, 10, 'fill')
-        set_round_patch(self.edge, 10, 'edge')
-        self.bind(pos=self.geometry, size=self.geometry, focus=self.style)
-        self.style()
-
-    def style(self, *_):
-        self.line_color.rgba = rgba('accent' if self.focus else 'border')
-
-    def geometry(self, *_):
-        self.fill.pos = self.edge.pos = self.pos
-        self.fill.size = self.edge.size = self.size
+        # Preserve Kivy's cursor, selection and foreground instructions.
+        self.fill = native_patch(self.canvas.before)
+        self.edge = self.fill
+        self.fill.display_border = [dp(11)] * 4
 
 
 class ResultCard(ReconcileLayout):

@@ -45,3 +45,44 @@ def test_masks_match_deterministic_generator():
                 assert at(width // 2, height // 2) == (0 if 'edge' in name else 255)
             offset += length + 12
         assert offset == len(data)
+
+
+def test_native_palette_patches_are_token_exact_and_reproducible():
+    import json
+
+    colors = json.loads(
+        (ROOT / 'design/design_tokens.json').read_text(encoding='utf-8')
+    )['colors']
+    expected = {
+        'outline_normal': 'surface',
+        'outline_down': 'surface2',
+        'primary_normal': 'accent',
+        'primary_down': 'accent_text',
+        'pill_normal': 'surface',
+        'pill_down': 'surface2',
+        'text_down': 'surface2',
+        'input_normal': 'background',
+        'input_focus': 'background',
+    }
+    for name, data in generator.colored_outputs().items():
+        assert (
+            ROOT / 'src/nte_gear_optimizer_app/assets/ui_masks' / name
+        ).read_bytes() == data
+        width, height = struct.unpack('!II', data[16:24])
+        offset = 8
+        compressed = b''
+        while offset < len(data):
+            length = struct.unpack('!I', data[offset : offset + 4])[0]
+            if data[offset + 4 : offset + 8] == b'IDAT':
+                compressed += data[offset + 8 : offset + 8 + length]
+            offset += length + 12
+        pixels = zlib.decompress(compressed)
+        i = (height // 2) * (1 + 4 * width) + 1 + (width // 2) * 4
+        if name == 'text_normal.png':
+            assert pixels[i + 3] == 0
+        else:
+            code = colors[expected[name.removesuffix('.png')]].lstrip('#')
+            assert tuple(pixels[i : i + 4]) == (
+                *tuple(int(code[n : n + 2], 16) for n in (0, 2, 4)),
+                255,
+            )

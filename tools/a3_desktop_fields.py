@@ -552,12 +552,12 @@ class FieldProbe(ComparisonApp):
         self.capture_view(out, 'ark_level_emoji_selected_ark')
         # Footer primary button is outside the ScrollView preview: its own
         # pressed canvas must visibly change on the actual OS down event.
-        normal_fill = tuple(self.next_button.fill_color.rgba)
+        normal_fill = self.next_button.fill.source
         yield from self.position_for_hold(self.next_button)
         native_button(self.next_button, True)
         yield 0.08
         assert self.next_button.state == 'down'
-        assert tuple(self.next_button.fill_color.rgba) != normal_fill
+        assert self.next_button.fill.source != normal_fill
         self.capture_view(out, 'primary_button_pressed')
         native_button(self.next_button, False)
         yield 0.6

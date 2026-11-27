@@ -137,3 +137,17 @@ def test_user_scroll_can_leave_old_focused_field_and_next_focus_resumes_alignmen
     view.padded.append(body)
     view.update()
     assert body.padding == [0, 0, 0, 0] and view.manual_target is None
+
+
+def test_actual_native_white_field_snapshot_needs_only119_75px():
+    # CI_15232247063.zip, runtime108503c: WhitePanelBase bottom1146.75,
+    # IME top1048, 8dp=21px, scroll_y0, no padding, IME height809.
+    from nte_gear_optimizer_app.minimal_keyboard_viewport import minimum_bottom_padding
+
+    assert minimum_bottom_padding(1146.75, 1048, 21, 1, 4000, 0, 0, 809) == 119.75
+    # Same content before using its remaining400px ordinary scroll range.
+    assert minimum_bottom_padding(1546.75, 1048, 21, 1, 800, 0.5, 0, 809) == 119.75
+    # Layout has applied the padding: keep it instead of removing it because
+    # the OLD focused field happens to be above the keyboard.
+    assert minimum_bottom_padding(1027, 1048, 21, 1, 4119.75, 0, 119.75, 809) == 119.75
+    assert minimum_bottom_padding(900, 1048, 21, 1, 4000, 0, 119.75, 809) == 0

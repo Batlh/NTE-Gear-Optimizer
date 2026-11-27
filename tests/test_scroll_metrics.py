@@ -54,3 +54,35 @@ def test_tap_programmatic_scroll_and_unrelated_touch_do_not_create_gesture():
     m.end('a')
     m.finish()
     assert not rows
+
+
+def test_mode_switch_never_uses_stale60hz_to_claim_no_missed120hz_frames():
+    now = [0.0]
+    rows = []
+    m = ScrollMetrics(lambda event, **row: rows.append(row), 60, lambda: now[0])
+    m.begin('finger', 0, 0)
+    now[0] = 0.01
+    m.move('finger', 0, 2)
+    m.changed('page', 1)
+    m.frame()
+    now[0] = 0.02
+    m.set_refresh(120)
+    m.changed('page', 2)
+    m.frame()
+    m.finish()
+    assert rows[0]['status'] == 'UNVERIFIED_REFRESH_CHANGED'
+    assert rows[0]['refresh_hz'] == 60 and rows[0]['refresh_hz_at_end'] == 120
+    assert rows[0]['missed_frames_percent'] is None
+    assert 'expected_refresh_slots' not in rows[0]
+    # The next stable gesture uses the newly read120Hz reference.
+    m.begin('next', 0, 0)
+    now[0] = 0.03
+    m.move('next', 0, 2)
+    m.changed('page', 1)
+    m.frame()
+    now[0] += 1 / 120
+    m.changed('page', 2)
+    m.frame()
+    m.finish()
+    assert rows[-1]['refresh_hz'] == 120
+    assert rows[-1]['missed_frames_percent'] == 0

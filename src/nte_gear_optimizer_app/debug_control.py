@@ -323,7 +323,7 @@ class DebugControl:
         for label, action in actions:
 
             def selected(action=action):
-                popup.dismiss()
+                popup.dismiss(animation=False)
                 self.app.active_debug = None
                 try:
                     action()
@@ -339,7 +339,7 @@ class DebugControl:
             layout.add_widget(button)
         popup.add_widget(layout)
         self.app.active_debug = (popup, buttons)
-        popup.open()
+        popup.open(animation=False)
         self.trace.attach_tree(popup)
         return popup
 

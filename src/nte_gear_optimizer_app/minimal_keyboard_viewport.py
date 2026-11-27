@@ -20,6 +20,18 @@ def required_lift(
     }
 
 
+def minimum_bottom_padding(
+    lowest_bottom, ime_top, gap, scale, overflow, scroll_y, padding, maximum
+):
+    required_lift(lowest_bottom, ime_top, gap, scale, overflow, scroll_y, padding)
+    if not math.isfinite(maximum) or maximum < 0:
+        raise ValueError('Invalid IME height')
+    # Include remaining ordinary scroll range and existing padding. Only the
+    # unreachable bottom of the lowest actual input needs additional range.
+    extra = (lowest_bottom - (ime_top - gap)) * scale - scroll_y * overflow
+    return max(0.0, min(maximum, padding + extra))
+
+
 class MinimalKeyboardViewport:
     def __init__(self, app, window, clock, read_native, emit, gap=8):
         self.app, self.window, self.read_native, self.emit = (
@@ -59,18 +71,22 @@ class MinimalKeyboardViewport:
         left, top, width, height = state['surface_rect']
         return top + (self.window.height - y) * height / self.window.height
 
-    def focused(self):
+    def body_fields(self):
+        fields = []
         for w in self.app.inputs.values():
-            if not getattr(w, 'focus', False):
-                continue
-            node = w
-            seen = set()
+            node, seen = w, set()
             while node is not None and id(node) not in seen:
+                if getattr(node, 'opacity', 1) <= 0 or getattr(node, 'disabled', False):
+                    break
                 if node is self.app.body:
-                    return w
+                    fields.append(w)
+                    break
                 seen.add(id(node))
                 node = getattr(node, 'parent', None)
-        return None
+        return fields
+
+    def focused(self):
+        return next((w for w in self.body_fields() if getattr(w, 'focus', False)), None)
 
     def update(self, dt=0):
         try:
@@ -82,8 +98,6 @@ class MinimalKeyboardViewport:
             if not state['visible']:
                 self.reset()
                 return
-            if widget is self.manual_target:
-                return
             if getattr(self.app, 'active_touches', None):
                 return
             if self.target is not widget:
@@ -92,10 +106,33 @@ class MinimalKeyboardViewport:
                 self.adjusted = False
             _, _, _, surface_height = state['surface_rect']
             scale = self.window.height / surface_height
-            bottom = self.field_bottom(widget, state)
             gap = self.gap / scale
             overflow = max(0.0, self.app.body.height - self.app.scroll.height)
             padding = float(self.app.body.padding[3])
+            lowest = max(self.field_bottom(w, state) for w in self.body_fields())
+            needed = minimum_bottom_padding(
+                lowest,
+                state['visible_bottom'],
+                gap,
+                scale,
+                overflow,
+                self.app.scroll.scroll_y,
+                padding,
+                state['native_height'] * scale,
+            )
+            if abs(needed - padding) > 1:
+                self.app.body.padding = [0, 0, 0, needed]
+                if self.app.body not in self.padded:
+                    self.padded.append(self.app.body)
+                self.emit(
+                    'keyboard_scroll_padding',
+                    height=needed,
+                    policy='minimal_unreachable_input_range',
+                )
+                return  # let the actual BoxLayout apply its changed minimum height
+            if widget is self.manual_target:
+                return  # never pull the old focused field back after a user swipe
+            bottom = self.field_bottom(widget, state)
             result = required_lift(
                 bottom,
                 state['visible_bottom'],
@@ -105,27 +142,9 @@ class MinimalKeyboardViewport:
                 self.app.scroll.scroll_y,
                 padding,
             )
-            if result['padding_add'] > 1:
-                maximum = state['native_height'] * scale
-                added = min(maximum - padding, result['padding_add'])
-                if added > 1:
-                    self.app.body.padding = [0, 0, 0, padding + added]
-                    if self.app.body not in self.padded:
-                        self.padded.append(self.app.body)
-                    self.adjusted = True
-                    self.emit(
-                        'keyboard_scroll_padding',
-                        height=padding + added,
-                        policy='minimal_native_geometry',
-                    )
-                return
             if result['lift'] > 1 and overflow > 0:
                 self.app.scroll.scroll_y = result['scroll_y']
                 self.adjusted = True
-            elif padding > 0:
-                excess = max(0.0, (state['visible_bottom'] - gap - bottom) * scale)
-                if excess > 1:
-                    self.app.body.padding = [0, 0, 0, max(0.0, padding - excess)]
             elif self.adjusted and overflow > 0:
                 excess = (state['visible_bottom'] - gap - bottom) * scale
                 if excess > self.gap:

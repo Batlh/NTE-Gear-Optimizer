@@ -1,6 +1,8 @@
 """A0 observational Kivy bridge; does not alter the 2A-3 input path."""
 
 import weakref
+import math
+import time
 from .scroll_metrics import ScrollMetrics
 
 
@@ -49,9 +51,23 @@ def display_refresh(platform):
     }
 
 
+def active_display_refresh(platform):
+    # Supported-mode enumeration is needed once for the frame policy. During
+    # a gesture only read the active rate, at most4times per second.
+    if platform == 'android':
+        from jnius import autoclass
+
+        activity = autoclass('org.kivy.android.PythonActivity').mActivity
+        return float(activity.getWindowManager().getDefaultDisplay().getRefreshRate())
+    return display_refresh(platform)['active_hz']
+
+
 class ScrollObserver:
     def __init__(self, window, clock, platform, emit):
         self.window, self.clock = window, clock
+        self.platform = platform
+        self.last_refresh_read = time.perf_counter()
+        self.last_refresh_read_ms = None
         try:
             self.display = display_refresh(platform)
         except Exception as error:
@@ -64,12 +80,41 @@ class ScrollObserver:
         self.bound = weakref.WeakSet()
         self.labels = weakref.WeakKeyDictionary()
         window.bind(on_motion=self.motion, on_flip=self.metrics.frame)
-        self.event = clock.schedule_interval(self.metrics.settle, 0.05)
+        self.event = clock.schedule_interval(self.tick, 0.05)
+
+    def refresh_active_rate(self):
+        started = time.perf_counter()
+        try:
+            hz = active_display_refresh(self.platform)
+            if hz is not None and (not math.isfinite(hz) or hz <= 1):
+                hz = None
+            self.display['active_hz'] = hz
+            self.display['active_rate_status'] = (
+                'READ' if hz is not None else 'UNVERIFIED'
+            )
+        except Exception as error:
+            hz = None
+            self.display['active_hz'] = None
+            self.display['active_rate_status'] = 'UNVERIFIED_READ_FAILED'
+            self.display['active_rate_reason'] = type(error).__name__
+        self.metrics.set_refresh(hz)
+        self.last_refresh_read = time.perf_counter()
+        self.last_refresh_read_ms = round((self.last_refresh_read - started) * 1000, 3)
+
+    def tick(self, dt=0):
+        self.metrics.settle(dt)
+        if (
+            self.metrics.current is not None
+            and time.perf_counter() - self.last_refresh_read >= 0.25
+        ):
+            self.refresh_active_rate()
 
     def motion(self, _, kind, touch):
         identifier = str(touch.uid)
         point = (touch.sx * self.window.width, touch.sy * self.window.height)
         if kind == 'begin':
+            self.metrics.finish()
+            self.refresh_active_rate()
             self.metrics.begin(identifier, *point)
         elif kind == 'update':
             self.metrics.move(identifier, *point)
@@ -104,7 +149,13 @@ class ScrollObserver:
                     'scroll_timeout': scroll.scroll_timeout,
                 }
             )
-        return {'display': self.display, 'physics': physics, **self.metrics.summary()}
+        return {
+            'display': self.display,
+            'physics': physics,
+            'active_refresh_read_ms': self.last_refresh_read_ms,
+            'active_refresh_sampling': 'At gesture begin and at most every250ms during a gesture; no native reads at rest.',
+            **self.metrics.summary(),
+        }
 
     def stop(self):
         self.metrics.finish()

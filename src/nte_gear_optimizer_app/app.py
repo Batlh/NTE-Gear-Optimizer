@@ -222,7 +222,7 @@ class ComparisonApp(App):
                         (name for name, key in entries if key == value), None
                     ),
                 )
-            popup.dismiss()
+            popup.dismiss(animation=False)
             self.active_selector = None
             callback(value)
 
@@ -243,7 +243,7 @@ class ComparisonApp(App):
                     new_id=current,
                     name=next((name for name, key in entries if key == current), None),
                 )
-            popup.dismiss()
+            popup.dismiss(animation=False)
             self.active_selector = None
 
         cancel = self.button('Abbrechen', cancel_selection)
@@ -261,7 +261,7 @@ class ComparisonApp(App):
                     open_token, failed=True
                 )
             )
-        popup.open()
+        popup.open(animation=False)
         if self.debug:
             self.debug.trace.attach_tree(popup)
 

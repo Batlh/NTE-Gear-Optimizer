@@ -78,6 +78,13 @@ jobs:
             .buildozer/android/platform/build-${{ matrix.abi }}/packages
             .buildozer/android/platform/build-${{ matrix.abi }}/python-installs
           key: android-${{ matrix.abi }}-py3142-kivy232-9562d1b4f306-${{ hashFiles('build_recipes/**', 'requirements-android.txt', 'buildozer.spec') }}
+      - name: Cache pinned Gradle distribution and dependency files
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.gradle/wrapper/dists
+            ~/.gradle/caches/modules-2/files-2.1
+          key: nte-gradle-p4a9562d1b4f306-${{ hashFiles('build_recipes/**', 'requirements-android.txt', 'buildozer.spec', 'tools/configure_android_ci.py') }}
       - run: python -m pip install -r requirements-android.txt
       - run: python tools/configure_android_ci.py
       - run: python tools/check_android_manifest.py

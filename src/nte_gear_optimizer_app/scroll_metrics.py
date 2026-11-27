@@ -47,6 +47,9 @@ class ScrollMetrics:
         self.finish()
         self.current = {
             'touch_id': str(identifier),
+            'refresh_hz_at_start': self.refresh_hz,
+            'refresh_changed': False,
+            'refresh_samples': [{'elapsed_ms': 0, 'hz': self.refresh_hz}],
             'start': self.clock(),
             'origin': (x, y),
             'last_touch': (x, y),
@@ -60,6 +63,23 @@ class ScrollMetrics:
             'label': None,
             'last_position': None,
         }
+
+    def set_refresh(self, hz):
+        previous = self.refresh_hz
+        self.refresh_hz = hz
+        changed = (previous is None) != (hz is None) or (
+            previous is not None and hz is not None and abs(previous - hz) > 0.1
+        )
+        if self.current is not None and changed:
+            self.current['refresh_changed'] = True
+            self.current['refresh_samples'].append(
+                {
+                    'elapsed_ms': round(
+                        (self.clock() - self.current['start']) * 1000, 3
+                    ),
+                    'hz': hz,
+                }
+            )
 
     def move(self, identifier, x, y):
         g = self.current
@@ -108,7 +128,14 @@ class ScrollMetrics:
         g, self.current = self.current, None
         if g is None or g['first_drag'] is None or not g['frames']:
             return
-        row = frame_statistics(list(g['frames']), self.refresh_hz)
+        row = frame_statistics(list(g['frames']), g['refresh_hz_at_start'])
+        row['refresh_samples'] = g['refresh_samples']
+        row['refresh_hz_at_end'] = self.refresh_hz
+        if g['refresh_changed']:
+            row['status'] = 'UNVERIFIED_REFRESH_CHANGED'
+            row['missed_frames_percent'] = None
+            row.pop('expected_refresh_slots', None)
+            row.pop('missed_refresh_slots', None)
         row.update(
             touch_id=g['touch_id'],
             scroll=g['label'],

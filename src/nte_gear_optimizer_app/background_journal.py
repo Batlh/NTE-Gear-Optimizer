@@ -114,6 +114,8 @@ class BackgroundJournal:
         return future.result(timeout=10)
 
     def emit(self, event, **data):
+        if not self.enabled:
+            return True
         stamp = {
             'ms': round((time.monotonic() - self.start) * 1000),
             'utc': datetime.now(timezone.utc).isoformat(timespec='milliseconds'),

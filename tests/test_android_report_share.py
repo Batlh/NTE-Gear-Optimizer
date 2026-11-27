@@ -87,9 +87,23 @@ def test_chooser_uses_explicit_java_charsequence_and_read_only_content_uri(
         'jnius',
         SimpleNamespace(autoclass=lambda name: classes[name], cast=cast),
     )
+    dispatch = []
+
+    def run_ui(function):
+        def called():
+            dispatch.append('requested')
+            return function()
+
+        return called
+
+    monkeypatch.setitem(sys.modules, 'android', SimpleNamespace(__path__=[]))
+    monkeypatch.setitem(
+        sys.modules, 'android.runnable', SimpleNamespace(run_on_ui_thread=run_ui)
+    )
     text = 'Umlaute äöüß – 🥝'
     assert android_share(text, 'report.txt') == 'report.txt'
     assert (tmp_path / 'debug_reports/report.txt').read_text(encoding='utf-8') == text
+    assert dispatch == ['requested']
     assert len(calls) == 1
     intent = calls[0][1][1]
     assert intent.action == 'send' and intent.type == 'text/plain'

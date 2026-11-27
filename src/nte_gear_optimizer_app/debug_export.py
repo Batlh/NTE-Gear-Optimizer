@@ -42,7 +42,26 @@ def android_share(report, filename):
         'java.lang.CharSequence',
         autoclass('java.lang.String')('Debug-Bericht teilen oder speichern'),
     )
-    activity.startActivity(intent_type.createChooser(intent, title))
+    from android.runnable import run_on_ui_thread
+    import threading
+
+    completed = threading.Event()
+    errors = []
+
+    @run_on_ui_thread
+    def launch():
+        try:
+            activity.startActivity(intent_type.createChooser(intent, title))
+        except Exception as error:
+            errors.append(error)
+        finally:
+            completed.set()
+
+    launch()
+    if not completed.wait(5):
+        raise TimeoutError('Android share activity did not acknowledge launch')
+    if errors:
+        raise errors[0]
     return filename
 
 

@@ -125,3 +125,17 @@ def test_top10_report_and_export_completion_causality(tmp_path):
     )
     assert 'LANGSAM | export: 333.0 ms' in report
     assert 'physischen Anzeige' in report
+
+
+def test_export_duration_excludes_wait_for_app_resume_after_native_chooser():
+    now = [0.0]
+    rows = []
+    trace = PerformanceTrace(
+        lambda event, **row: rows.append(row), clock=lambda: now[0]
+    )
+    token = trace.start('export', mode='share')
+    completed = 0.2
+    now[0] = 20  # SDL callback is resumed after the system chooser was visible.
+    trace.finish(token, completed_at=completed)
+    assert rows[-1]['duration_ms'] == 200
+    assert not trace.in_progress()

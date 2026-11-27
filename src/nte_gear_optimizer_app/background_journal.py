@@ -28,6 +28,10 @@ class BackgroundJournal:
         self.thread.start()
 
     @property
+    def seq(self):
+        return self._request('_seq')
+
+    @property
     def failed(self):
         return bool(
             self.worker_error
@@ -64,7 +68,9 @@ class BackgroundJournal:
                         raise RuntimeError(
                             self.worker_error or 'Journal worker unavailable'
                         )
-                    if operation == '_barrier':
+                    if operation == '_seq':
+                        value = self.store.seq
+                    elif operation == '_barrier':
                         self.store.flush_disk(force_sync=True)
                         value = True
                     else:

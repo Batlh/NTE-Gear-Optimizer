@@ -1,6 +1,7 @@
 """Kivy adapter for the offline journal and explicit report-export menu."""
 
 import weakref
+from concurrent.futures import ThreadPoolExecutor
 
 from kivy.clock import Clock
 from kivy.core.clipboard import Clipboard
@@ -26,7 +27,7 @@ from .debug_export import (
     desktop_report,
 )
 from .diagnostic_trace import InputTrace
-from .performance import PerformanceTrace, timed
+from .performance import PerformanceTrace
 from .viewmodel import ark_level_hint, normalize, numeric_hint
 
 
@@ -49,12 +50,23 @@ class DebugControl:
         )
         self.metadata = build_metadata()
         self.bound = weakref.WeakSet()
+        self.full_report = False
+        self.export_pool = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix='NTE-report-export'
+        )
+        self.export_future = None
+        self.stopped = False
         self.overlay = False
         self.overlay_canvas = InstructionGroup()
         Window.canvas.after.add(self.overlay_canvas)
         self.last_touch = None
         self.last_consumer = ''
-        self.consumer_depth = -1
+        from .touch_routes import TouchRoutes
+
+        self.routes = TouchRoutes()
+        self.display_touch_id = None
+        self.last_chain = ''
+        self.overlay_event = Clock.create_trigger(lambda dt: self.draw_overlay(), 0)
         self.native_state = None
         self.trace = InputTrace(app, self.observe)
         self.trace.attach_window(Window)
@@ -75,7 +87,7 @@ class DebugControl:
 
     def device(self):
         values = {
-            'app_version': '0.29.0 Phase 2A-3 (Test)',
+            'app_version': '0.29.0 Phase 2A-4 Teil A (Test)',
             'commit': self.metadata.get('commit', 'development-unbundled'),
             'version_code': None,
             'platform': platform,
@@ -103,37 +115,66 @@ class DebugControl:
                 self.journal.exception(error, caught=True)
         return values
 
+    def finish_route(self, identifier):
+        route = self.routes.snapshot(identifier)
+        if route is None:
+            return
+        self.journal.emit('touch_route_final', **route)
+        self.refresh_route(identifier)
+
+    def refresh_route(self, identifier):
+        if str(identifier) != self.display_touch_id:
+            return
+        route = self.routes.snapshot(identifier)
+        if not route or not route['target']:
+            return
+        w = route['target']
+        self.last_consumer = (
+            w['class'] + ' ' + str(w.get('field') or w.get('label') or '')
+        )
+        self.last_consumer += (
+            f' · sichtbar={w.get("tree_visible")} · aktiv={w.get("enabled")}'
+        )
+        chain = []
+        for node in route['chain']:
+            name = node.get('class', '?')
+            if not chain or chain[-1] != name:
+                chain.append(name)
+        self.last_chain = ' → '.join(chain)
+        if self.overlay:
+            self.overlay_event()
+
     def observe(self, row):
         data = dict(row)
         event = data.pop('event')
         data['trace_seq'] = data.pop('seq')
         data['trace_ms'] = data.pop('ms')
         self.journal.emit(event, **data)
+        identifier = row.get('touch_id')
         if event == 'focus' and row['focused']:
-            self.performance.response('focus')
-        if event == 'touch_accepted' and row['widget']['class'] == 'Button':
-            self.performance.response('button_pressed', row['touch_id'])
+            self.performance.response('focus', identifier)
+            self.performance.feedback('focus', identifier)
+            if identifier is not None:
+                self.routes.accept(identifier, row['widget'], definitive=True)
+        if event == 'touch_target':
+            self.routes.accept(identifier, row['widget'], definitive=True)
+            self.performance.response('button_pressed', identifier)
         if event == 'focus' and not row['focused']:
             self.journal.flush_inputs(row['widget'].get('field'), force=True)
         if event == 'motion_begin':
-            self.performance.touch_begin(row['touch_id'])
-            self.consumer_depth = -1
+            self.performance.touch_begin(identifier)
+            self.routes.begin(identifier)
+            self.display_touch_id = str(identifier)
             self.last_touch = [
                 row['normalized'][0] * Window.width,
                 row['normalized'][1] * Window.height,
             ]
-        if (
-            event == 'touch_accepted'
-            and row['widget'].get('depth', 0) > self.consumer_depth
-        ):
-            self.consumer_depth = row['widget'].get('depth', 0)
-            w = row['widget']
-            self.last_consumer = w.get('field') or w.get('label') or w['class']
-            self.last_consumer += (
-                f' · sichtbar={w.get("tree_visible")} · aktiv={w.get("enabled")}'
-            )
-        if self.overlay:
-            self.draw_overlay()
+        if event == 'touch_accepted':
+            self.routes.accept(identifier, row['widget'])
+        if identifier is not None:
+            self.refresh_route(identifier)
+        if event == 'motion_end':
+            Clock.schedule_once(lambda dt, key=identifier: self.finish_route(key), 0)
 
     def native_keyboard_state(self, dt):
         try:
@@ -177,7 +218,9 @@ class DebugControl:
                 )
             )
         text = CoreLabel(
-            text=self.last_consumer or 'Touch-Diagnose aktiv',
+            text=(self.last_consumer or 'Touch-Diagnose aktiv')
+            + '\n'
+            + self.last_chain,
             font_name='NTEText',
             font_size=dp(12),
             text_size=(Window.width - dp(16), None),
@@ -302,6 +345,12 @@ class DebugControl:
     def menu(self):
         self.journal.emit('debug_menu_open')
         actions = [
+            (
+                'Bericht: Vollständig'
+                if self.full_report
+                else 'Bericht: Kurzbericht (Standard)',
+                self.choose_report_mode,
+            ),
             ('Debug-Bericht exportieren', lambda: self.confirm_export('share')),
             ('In Zwischenablage kopieren', lambda: self.confirm_export('clipboard')),
             (
@@ -316,6 +365,21 @@ class DebugControl:
             )
         actions.append(('Schließen', lambda: None))
         self.popup('Debug – nur auf diesem Gerät', actions)
+
+    def choose_report_mode(self):
+        def choose(full):
+            self.full_report = full
+            self.journal.emit('report_mode', full=full)
+            self.menu()
+
+        self.popup(
+            'Berichtsart',
+            [
+                ('Kurzbericht (Standard)', lambda: choose(False)),
+                ('Vollständig', lambda: choose(True)),
+                ('Abbrechen', self.menu),
+            ],
+        )
 
     def toggle_overlay(self):
         self.overlay = not self.overlay
@@ -337,26 +401,63 @@ class DebugControl:
             [('Fortfahren', lambda: self.export(mode)), ('Abbrechen', self.menu)],
         )
 
-    @timed('export')
     def export(self, mode):
-        self.journal.emit('report_export_requested', mode=mode)
-        report = self.journal.report(self.device(), self.state())
-        filename = self.journal.filename()
-        if mode == 'clipboard':
-            Clipboard.copy(report)
-            destination = 'In Zwischenablage kopiert.'
-        elif platform == 'android':
-            destination = (
-                android_download(report, filename)
-                if mode == 'downloads'
-                else android_share(report, filename)
-            )
-        else:
-            destination = desktop_report(report, filename)
-        # The destination path is displayed, never copied into journal entries.
-        self.journal.emit('report_export_complete', mode=mode, filename=filename)
-        if platform != 'android' or mode != 'share':
-            self.popup(destination, [('Schließen', lambda: None)])
+        if self.export_future is not None and not self.export_future.done():
+            self.popup('Bericht wird erstellt …', [('Schließen', lambda: None)])
+            return
+        token = self.performance.start('export', mode=mode)
+        self.journal.emit('report_export_requested', mode=mode, full=self.full_report)
+        device, state, full = self.device(), self.state(), self.full_report
+
+        def work():
+            import threading
+
+            self.journal.emit('export_worker', thread=threading.current_thread().name)
+            report = self.journal.report(device, state, full=full)
+            filename = self.journal.filename()
+            if mode == 'clipboard':
+                return report, filename, 'In Zwischenablage kopiert.'
+            if platform == 'android':
+                destination = (
+                    android_download(report, filename)
+                    if mode == 'downloads'
+                    else android_share(report, filename)
+                )
+            else:
+                destination = desktop_report(report, filename)
+            return None, filename, destination
+
+        self.export_future = self.export_pool.submit(work)
+
+        def complete(future):
+            completed_at = self.performance.clock()
+
+            def finish(dt):
+                if self.stopped:
+                    return
+                try:
+                    report, filename, destination = future.result()
+                    if mode == 'clipboard':
+                        Clipboard.copy(report)
+                    self.journal.emit(
+                        'report_export_complete', mode=mode, filename=filename
+                    )
+                    self.performance.finish(token, completed_at=completed_at)
+                    if platform != 'android' or mode != 'share':
+                        self.popup(destination, [('Schließen', lambda: None)])
+                except Exception as error:
+                    self.performance.finish(
+                        token, failed=True, completed_at=completed_at
+                    )
+                    self.journal.exception(error, caught=True)
+                    self.popup(
+                        'Fehler protokolliert – bitte Zwischenablage oder Teilen versuchen.',
+                        [('Zurück', self.menu)],
+                    )
+
+            Clock.schedule_once(finish, 0)
+
+        self.export_future.add_done_callback(complete)
 
     def test_exception(self):
         if not self.metadata.get('emulator_test_only') and not __import__(
@@ -369,6 +470,8 @@ class DebugControl:
             self.journal.exception(error, caught=True)
 
     def stop(self):
+        self.stopped = True
+        self.export_pool.shutdown(wait=True, cancel_futures=True)
         self.scroll_observer.stop()
         Window.unbind(on_flip=self.performance.frame)
         self.journal.flush_inputs(force=True)

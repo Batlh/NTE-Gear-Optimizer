@@ -270,6 +270,8 @@ class ComparisonApp(App):
             widget.focus = False
         if self.keyboard_session:
             self.keyboard_session.close()
+        if self.keyboard_viewport:
+            self.keyboard_viewport.reset()
 
     def observe_touch_lifetime(self, window, kind, touch):
         if kind == 'begin':
@@ -292,7 +294,10 @@ class ComparisonApp(App):
                 return
             # No animation: a cursor must not move under a short tap or while
             # the next text events are already arriving from the native IME.
-            self.scroll.scroll_to(widget, padding=dp(24), animate=False)
+            if KIVY_PLATFORM == 'android' and self.keyboard_viewport:
+                self.keyboard_viewport.update()
+            else:
+                self.scroll.scroll_to(widget, padding=dp(24), animate=False)
             if self.debug:
                 self.debug.journal.emit(
                     'focus_scroll_after_touch_end',
@@ -449,10 +454,18 @@ class ComparisonApp(App):
         self.root_box.add_widget(self.debug_button)
         self.render()
         if KIVY_PLATFORM == 'android':
-            from .keyboard_viewport import KeyboardViewport, android_keyboard_reader
+            from .minimal_keyboard_viewport import (
+                MinimalKeyboardViewport,
+                android_geometry_reader,
+            )
 
-            self.keyboard_viewport = KeyboardViewport(
-                self, Window, Clock, android_keyboard_reader(), self.debug.journal.emit
+            self.keyboard_viewport = MinimalKeyboardViewport(
+                self,
+                Window,
+                Clock,
+                android_geometry_reader(),
+                self.debug.journal.emit,
+                gap=dp(8),
             )
         return self.root_box
 

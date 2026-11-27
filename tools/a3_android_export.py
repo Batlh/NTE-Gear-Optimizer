@@ -72,6 +72,13 @@ try:
     )
     payload = json.loads(data.decode('utf-8').split('--- NTE_DEBUG_JSON ---')[1])
     assert payload['format'] == 'NTE_DEBUG_V1'
+    assert payload['report_mode'] == 'SHORT'
+    assert len(data) < 200_000, len(data)
+    assert len(payload['events']) <= 300
+    assert any(
+        'NTE_A3_TEST_EXCEPTION' in e.get('stacktrace', '') for e in payload['errors']
+    )
+    assert payload['performance_summary']['slowest_10']
     assert any(
         e['event'] == 'performance' and e['operation'] == 'export'
         for e in payload['events']
@@ -82,6 +89,9 @@ try:
         'share_chooser': True,
         'downloads_json_roundtrip': True,
         'completed_share_export_timing': True,
+        'default_short_report': True,
+        'report_bytes': len(data),
+        'retained_events': len(payload['events']),
         'apk_commit': probe['metadata']['commit'],
     }
 except Exception:

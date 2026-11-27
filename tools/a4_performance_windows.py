@@ -32,7 +32,13 @@ class PerformanceProbe(ComparisonApp):
         self.actions = self.scenario()
         self.failure = None
         self.drag_error = None
+        self.blocks = []
+        self.flips = 0
+        Window.bind(on_flip=self.flipped)
         Clock.schedule_once(self.advance, 1)
+
+    def flipped(self, *args):
+        self.flips += 1
 
     def advance(self, dt):
         try:
@@ -89,13 +95,37 @@ class PerformanceProbe(ComparisonApp):
     def scenario(self):
         # The unmodified selection screen is long enough for reproducible
         # down/up gestures. Do not inject model values or call scroll_to.
-        for _ in range(4):
-            self.drag(False)
-            yield 2.1
-            self.drag(True)
-            yield 2.1
-        self.debug.scroll_observer.metrics.finish()
-        yield 0.3
+        for enabled in [True, False, False, True]:
+            self.debug.scroll_observer.metrics.finish()
+            self.debug.journal.enabled = enabled
+            before_seq = self.debug.journal.seq
+            before_count = len(self.debug.scroll_observer.metrics.recent)
+            for _ in range(2):
+                self.drag(False)
+                yield 2.1
+                self.drag(True)
+                yield 2.1
+            self.debug.scroll_observer.metrics.finish()
+            yield 0.3
+            after_seq = self.debug.journal.seq
+            if not enabled:
+                assert after_seq == before_seq, (before_seq, after_seq)
+            self.blocks.append(
+                {
+                    'logging': enabled,
+                    'seq_before': before_seq,
+                    'seq_after': after_seq,
+                    'gestures': list(self.debug.scroll_observer.metrics.recent)[
+                        before_count:
+                    ],
+                }
+            )
+        self.debug.journal.enabled = True
+        # Let all kinetic motion finish, then count actual GL flips at rest.
+        yield 4
+        before_idle = self.flips
+        yield 2
+        self.idle_flips_in_two_seconds = self.flips - before_idle
 
     def finish(self):
         summary = self.debug.scroll_observer.summary()
@@ -108,6 +138,10 @@ class PerformanceProbe(ComparisonApp):
             'platform': 'windows',
             'failure': self.failure,
             'scroll_summary': summary,
+            'logging_blocks': self.blocks,
+            'idle_flips_in_two_seconds': getattr(
+                self, 'idle_flips_in_two_seconds', None
+            ),
             'scope': 'Isolated Windows runner OS input; GL flip proxy; not Samsung device.',
         }
         for name, value in [

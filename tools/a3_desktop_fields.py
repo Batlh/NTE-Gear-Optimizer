@@ -282,7 +282,11 @@ class FieldProbe(ComparisonApp):
         assert 'Schließen' in self.active_debug[1]
         exported = max((Path.home() / 'Downloads').glob('NTE_Debugbericht_*.txt'))
         saved = exported.read_text(encoding='utf-8')
-        assert json.loads(saved.split(JSON_MARKER)[1])['format'] == 'NTE_DEBUG_V1'
+        short = json.loads(saved.split(JSON_MARKER)[1])
+        assert short['format'] == 'NTE_DEBUG_V1'
+        assert short['report_mode'] == 'SHORT'
+        assert len(saved.encode('utf-8')) < 200_000
+        assert len(short['events']) <= 300
         (out / 'NTE_Debugbericht_export_only.txt').write_bytes(exported.read_bytes())
         self.evidence.append({'real_export_only': 'PASS'})
         yield 0.1
@@ -375,6 +379,47 @@ class FieldProbe(ComparisonApp):
         assert self.white_box.parent is None
         self.guard('white_removed_again', 2)
 
+        # Actual OS navigation must reuse all existing fields. Zero changes
+        # their values without invoking render or replacing a widget.
+        body_before = self.body
+        fields_before = dict(self.inputs)
+        self.click(self.back_button)
+        yield from self.wait_click(lambda: self.vm.step == 1, 'reuse_back')
+        self.click(self.next_button)
+        yield from self.wait_click(lambda: self.vm.step == 2, 'reuse_forward')
+        assert self.body is body_before
+        assert all(self.inputs.get(k) is w for k, w in fields_before.items())
+        zero = self.zero_buttons[0]
+        self.scroll.scroll_to(zero, padding=30)
+        yield 0.5
+        boundary = self.debug.journal.seq
+        native_button(zero, None)
+        yield 0.15
+        native_button(zero, True)
+        yield 0.04
+        assert zero.state == 'down', 'No optical down feedback while held'
+        native_button(zero, False)
+        yield 0.6
+        after_zero = self.debug.journal.events()
+        assert any(
+            r['event'] == 'zero_bonus' and r['seq'] > boundary for r in after_zero
+        )
+        assert not any(
+            r['event'] == 'performance'
+            and r.get('operation') == 'render'
+            and r['seq'] > boundary
+            for r in after_zero
+        )
+        assert self.body is body_before
+        assert all(self.inputs.get(k) is w for k, w in fields_before.items())
+        self.evidence.append(
+            {
+                'page_reuse_back_forward': 'PASS',
+                'zero_without_render': 'PASS',
+                'held_button_feedback': 'PASS',
+            }
+        )
+
         self.inputs[('x', 'UniversalPP')].text = '2.560'
         yield 0.5
         left = self.inputs[('x', 'UniversalPP')]
@@ -426,7 +471,11 @@ class FieldProbe(ComparisonApp):
         assert 'Schließen' in self.active_debug[1]
         exported = max((Path.home() / 'Downloads').glob('NTE_Debugbericht_*.txt'))
         saved = exported.read_text(encoding='utf-8')
-        assert json.loads(saved.split(JSON_MARKER)[1])['format'] == 'NTE_DEBUG_V1'
+        short = json.loads(saved.split(JSON_MARKER)[1])
+        assert short['format'] == 'NTE_DEBUG_V1'
+        assert short['report_mode'] == 'SHORT'
+        assert len(saved.encode('utf-8')) < 200_000
+        assert len(short['events']) <= 300
         assert str(Path.home()) not in saved
         assert any(
             getattr(w, 'text', None) == str(exported)

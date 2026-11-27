@@ -349,7 +349,7 @@ class DebugJournal:
             rows.sort(key=lambda row: (sessions[row.get('session')], row.get('seq', 0)))
         return rows
 
-    def report(self, device, state):
+    def report(self, device, state, *, full=True):
         self.flush_inputs(force=True)
         payload = clean(
             {
@@ -377,6 +377,10 @@ class DebugJournal:
             ),
             'scope': 'Retained current/prior session only. GL surface flip is a presentation proxy, not physical display latency. The currently running export finishes after its file is generated; its completed duration is available in the next report.',
         }
+        if not full:
+            from .short_report import render_short_report
+
+            return render_short_report(payload)
         heading = ['NTE Gear Optimizer – Debugbericht', PRIVACY_NOTICE]
         heading += [
             f'{key}: {json.dumps(value, ensure_ascii=False)}'

@@ -65,3 +65,17 @@ def test_queue_is_bounded_and_diagnostic_failure_never_raises(tmp_path):
     assert log.dropped and log.failed
     gate.set()
     log.close()
+
+
+def test_sequence_boundary_is_ordered_after_all_queued_records(tmp_path):
+    log = BackgroundJournal(tmp_path)
+    try:
+        for i in range(20):
+            log.emit('prior', index=i)
+        boundary = log.seq
+        log.emit('after_boundary')
+        rows = log.events()
+        assert all(row['seq'] <= boundary for row in rows if row['event'] == 'prior')
+        assert rows[-1]['event'] == 'after_boundary' and rows[-1]['seq'] > boundary
+    finally:
+        log.close()

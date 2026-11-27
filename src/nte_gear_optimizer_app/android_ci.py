@@ -1,7 +1,8 @@
 """Read-only UI observations, enabled ONLY in the emulator-only CI APK.
 
 The delivered arm64 APK has emulator_test_only=false and never enables this.
-No user-file persistence, export or runtime network access is introduced.
+The CI-only performance command toggles diagnostic logging, never model/focus/input
+values. No user-file persistence or runtime network access is introduced.
 """
 
 import json
@@ -22,6 +23,32 @@ def install_probe(app):
     from kivy.core.window import Window
     from collections import deque
 
+    # This command is unavailable in the delivered ARM64 package. Both the
+    # emulator-only build flag and the explicit test launch above are required.
+    perf_state = {'logging': True, 'boundaries': [], 'flip_count': 0}
+
+    def flip_count(*args):
+        perf_state['flip_count'] += 1
+
+    Window.bind(on_flip=flip_count)
+
+    def performance_intent(intent):
+        if not intent.hasExtra('nte_ci_perf_logging'):
+            return
+        enabled = bool(intent.getBooleanExtra('nte_ci_perf_logging', True))
+
+        def change(dt):
+            journal = app.debug.journal
+            before = journal.seq
+            journal.enabled = enabled
+            perf_state['logging'] = enabled
+            perf_state['boundaries'].append({'enabled': enabled, 'seq': before})
+
+        Clock.schedule_once(change, 0)
+
+    from android import activity as android_activity
+
+    android_activity.bind(on_new_intent=performance_intent)
     a3 = activity.getIntent().getBooleanExtra('nte_a3_cause', False)
     trace = None
     if a3:
@@ -142,6 +169,23 @@ def install_probe(app):
             'back': rect(app.back_button),
         }
         if a3:
+            summary = app.debug.scroll_observer.summary()
+            state['performance_probe'] = {
+                **perf_state,
+                'display': summary['display'],
+                'gestures': summary['gestures'][-8:],
+                'journal_seq': app.debug.journal.seq,
+                'body_padding': list(app.body.padding),
+                'page_id': id(app.body),
+                'touch_target': app.debug.last_consumer,
+                'touch_chain': app.debug.last_chain,
+                'input_ids': {':'.join(k): id(w) for k, w in app.inputs.items()},
+                'viewport_measurement': getattr(
+                    app.keyboard_viewport, 'last_measurement', None
+                )
+                if hasattr(app, 'keyboard_viewport')
+                else None,
+            }
             state['debug_button'] = rect(app.debug_button)
             state['zeros'] = [rect(widget) for widget in app.zero_buttons]
             state['jumps'] = {

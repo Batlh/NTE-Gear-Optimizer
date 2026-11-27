@@ -86,6 +86,25 @@ try:
     ui.tap(s['next'], s)
     s = ui.fresh()
     assert s['step'] == 1
+    # A real swipe starting on an input must neither focus it nor open IME.
+    rect, s = ui.reach(
+        lambda s: s['inputs']['current:UniversalPP']['rect'], lambda s: s['page_scroll']
+    )
+    x, y, width, height = ui.screen_rect(rect, s)
+    ui.adb(
+        'shell',
+        'input',
+        'swipe',
+        str(round(x + width / 2)),
+        str(round(y + height / 2)),
+        str(round(x + width / 2)),
+        str(round(max(s['frame'][1] + 20, y + height / 2 - 120))),
+        '350',
+    )
+    time.sleep(1)
+    swiped, swipe_ime = ui.record('swipe_on_input_no_focus')
+    assert not any(v['focus'] for v in swiped['inputs'].values())
+    assert not swipe_ime['shown']
     # Required down/up handoff with the keyboard left open at every tap.
     handoff_events = {}
     for key, value, name in [
@@ -153,6 +172,12 @@ try:
     s = ui.fresh()
     assert s['step'] == 2
     every_part_field('ang_all_fields')
+    s = ui.fresh()
+    focused = next(v for v in s['inputs'].values() if v['focus'])
+    _, bottom, _, height = ui.screen_rect(focused['rect'], s)
+    gap = s['frame'][3] - bottom - height
+    assert 0 <= gap <= 32, ('Lower field not just above IME', gap, s)
+    ui.record('lowest_field_minimal_ime_gap')
     # Same-row handoff and double tap, again without closing IME.
     ime_field('x:UniversalPP', '12', 'pair_left')
     s = ime_field('y:UniversalPP', '34', 'pair_right')
@@ -197,10 +222,17 @@ try:
     ui.record('debug_menu')
     debug_action('Touch-Diagnose an')
     # At least one real touch while overlay is enabled.
-    ime_field('current:UniversalPP', '7', 'touch_overlay')
+    overlay = ime_field('current:UniversalPP', '7', 'touch_overlay')
+    target = overlay['performance_probe']['touch_target']
+    assert 'TextInput current:UniversalPP' in target, target
+    assert 'TextInput' in overlay['performance_probe']['touch_chain']
     ui.adb('shell', 'input', 'keyevent', '66')
     s = ui.fresh()
     ui.tap(s['debug_button'], s)
+    # Full regression deliberately selects the complete journal. Default short
+    # export is verified separately by the export-only native scenario.
+    debug_action('Bericht: Kurzbericht (Standard)')
+    debug_action('Vollständig')
     debug_action('Debug-Bericht exportieren')
     ui.record('privacy_notice')
     debug_action('Fortfahren')
@@ -254,7 +286,7 @@ try:
     current = [e['seq'] for e in events if e['session'] == session]
     assert current == sorted(set(current)), current
     assert payload['device']['commit'] == probe['metadata']['commit']
-    assert payload['device']['version_code'] > 1002601
+    assert payload['device']['version_code'] > 1004001
     ui.adb('shell', 'input', 'keyevent', '4')
     s = ui.fresh()
     ui.tap(s['debug_button'], s)

@@ -21,8 +21,19 @@ class PerformanceTrace:
         self.active[token] = (operation, self.clock(), context)
         return token
 
-    def record(self, operation, started, *, endpoint='function_return', **context):
-        duration = max(0, (self.clock() - started) * 1000)
+    def record(
+        self,
+        operation,
+        started,
+        *,
+        endpoint='function_return',
+        completed_at=None,
+        **context,
+    ):
+        duration = max(
+            0,
+            ((self.clock() if completed_at is None else completed_at) - started) * 1000,
+        )
         try:
             self.emit(
                 'performance',
@@ -35,11 +46,13 @@ class PerformanceTrace:
         except Exception:
             pass
 
-    def finish(self, token, *, failed=False, frame=False):
+    def finish(self, token, *, failed=False, frame=False, completed_at=None):
         if token is None or token not in self.active:
             return
         operation, started, context = self.active.pop(token)
-        self.record(operation, started, failed=failed, **context)
+        self.record(
+            operation, started, failed=failed, completed_at=completed_at, **context
+        )
         if frame and not failed:
             self.frames.append((operation + '_first_frame', started, context))
             self.frames = self.frames[-32:]

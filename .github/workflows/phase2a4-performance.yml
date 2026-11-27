@@ -75,7 +75,7 @@ jobs:
 
   android-controlled:
     # Frozen A/B diagnostic; deliberately opt-in after this initial run.
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Compare cached design APK against immutable Part A on one emulator'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:

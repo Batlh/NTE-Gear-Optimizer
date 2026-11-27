@@ -128,7 +128,9 @@ class FieldProbe(ComparisonApp):
     def clipped(self, widget):
         box = [*widget.to_window(*widget.pos), *widget.size]
         parent = widget.parent
-        while parent is not None:
+        visited = set()
+        while parent is not None and parent not in visited:
+            visited.add(parent)
             if isinstance(parent, ScrollView):
                 box = intersection(box, [*parent.to_window(*parent.pos), *parent.size])
             parent = parent.parent
@@ -245,10 +247,39 @@ class FieldProbe(ComparisonApp):
         self.vm.item_y['ScalingPercentPP'] = '10'
         yield from self.check_fields('white_attached', 2)
         assert self.white_box.parent is self.body
+        assert any(
+            row['event'] == 'focus'
+            and row.get('focused')
+            and row.get('widget', {}).get('field') == 'white:WhitePanelBase'
+            for row in self.debug.journal.events()
+        ), 'Dynamically attached white-base focus was not journalled'
+
         self.inputs[('y', 'ScalingPercentPP')].text = '0'
         yield 0.5
         assert self.white_box.parent is None
         self.guard('white_removed', 2)
+        start_sequence = self.debug.journal.seq
+        self.inputs[('y', 'ScalingPercentPP')].text = '10'
+        yield 0.5
+        assert self.white_box.parent is self.body
+        white = self.inputs[('white', 'WhitePanelBase')]
+        self.scroll.scroll_to(white, padding=30)
+        yield 0.5
+        self.click(white)
+        yield 0.55
+        assert white.focus
+        assert any(
+            row['seq'] > start_sequence
+            and row['event'] == 'focus'
+            and row.get('focused')
+            and row.get('widget', {}).get('field') == 'white:WhitePanelBase'
+            for row in self.debug.journal.events()
+        )
+        self.inputs[('y', 'ScalingPercentPP')].text = '0'
+        yield 0.5
+        assert self.white_box.parent is None
+        self.guard('white_removed_again', 2)
+
         self.inputs[('x', 'UniversalPP')].text = '2.560'
         yield 0.5
         left = self.inputs[('x', 'UniversalPP')]

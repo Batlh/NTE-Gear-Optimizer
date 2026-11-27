@@ -308,6 +308,8 @@ class ComparisonApp(App):
                     else 0
                 )
                 self.body.add_widget(self.white_box, index=index)
+                if self.debug:
+                    self.debug.attach()
         elif self.white_box.parent is self.body:
             for key, widget in self.inputs.items():
                 if key[0] == 'white':

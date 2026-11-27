@@ -50,6 +50,48 @@ def outputs():
     }
 
 
+def image_data(data):
+    """Validate canonical PNG bytes; compare pixels independent of zlib encoding.
+
+    Published source PNGs stay byte-identical on every platform. Regeneration
+    may use a different linked zlib encoder; that is not a different image.
+    """
+    assert data.startswith(b'\x89PNG\r\n\x1a\n')
+    offset = 8
+    header = None
+    payload = b''
+    ended = False
+    while offset < len(data):
+        n = struct.unpack('!I', data[offset : offset + 4])[0]
+        kind = data[offset + 4 : offset + 8]
+        body = data[offset + 8 : offset + 8 + n]
+        assert len(body) == n
+        crc = struct.unpack('!I', data[offset + 8 + n : offset + 12 + n])[0]
+        assert crc == zlib.crc32(kind + body)
+        if kind == b'IHDR':
+            assert header is None
+            header = body
+        elif kind == b'IDAT':
+            payload += body
+        elif kind == b'IEND':
+            assert not body
+            ended = True
+        else:
+            raise AssertionError('Unexpected UI PNG chunk')
+        offset += n + 12
+    assert ended and offset == len(data) and len(header) == 13
+    width, height, depth, color, compression, filtering, interlace = struct.unpack(
+        '!IIBBBBB', header
+    )
+    assert (
+        depth == 8 and color == 6 and (compression, filtering, interlace) == (0, 0, 0)
+    )
+    raw = zlib.decompress(payload)
+    assert len(raw) == height * (1 + width * 4)
+    assert all(raw[y * (1 + width * 4)] == 0 for y in range(height))
+    return header, raw
+
+
 def colored_outputs():
     import json
 
@@ -133,7 +175,7 @@ if __name__ == '__main__':
     for name, data in (outputs() | colored_outputs()).items():
         p = out / name
         if p.exists():
-            assert p.read_bytes() == data, p
+            assert image_data(p.read_bytes()) == image_data(data), p
         else:
             p.write_bytes(data)
     print('Own deterministic round UI masks and native palette patches verified')

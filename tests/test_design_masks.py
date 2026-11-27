@@ -11,11 +11,11 @@ generator = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(generator)
 
 
-def test_masks_match_deterministic_generator():
+def test_masks_match_generator_pixels_and_valid_canonical_encoding():
     for name, data in generator.outputs().items():
-        assert (
-            ROOT / 'src/nte_gear_optimizer_app/assets/ui_masks' / name
-        ).read_bytes() == data
+        assert generator.image_data(
+            (ROOT / 'src/nte_gear_optimizer_app/assets/ui_masks' / name).read_bytes()
+        ) == generator.image_data(data)
         assert data.startswith(b'\x89PNG\r\n\x1a\n')
         width, height, depth, kind, compression, filtering, interlace = struct.unpack(
             '!IIBBBBB', data[16:29]
@@ -65,9 +65,9 @@ def test_native_palette_patches_are_token_exact_and_reproducible():
         'input_focus': 'background',
     }
     for name, data in generator.colored_outputs().items():
-        assert (
-            ROOT / 'src/nte_gear_optimizer_app/assets/ui_masks' / name
-        ).read_bytes() == data
+        assert generator.image_data(
+            (ROOT / 'src/nte_gear_optimizer_app/assets/ui_masks' / name).read_bytes()
+        ) == generator.image_data(data)
         width, height = struct.unpack('!II', data[16:24])
         offset = 8
         compressed = b''

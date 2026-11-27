@@ -1,6 +1,7 @@
 """Actual Android touches, keyboard transitions, debug sharing and journal."""
 
 import json
+import re
 import time
 import traceback
 
@@ -176,7 +177,16 @@ try:
     focused = next(v for v in s['inputs'].values() if v['focus'])
     _, bottom, _, height = ui.screen_rect(focused['rect'], s)
     gap = s['frame'][3] - bottom - height
-    assert 0 <= gap <= 32, ('Lower field not just above IME', gap, s)
+    density_values = re.findall(
+        r'(?:Physical|Override) density:\s*(\d+)', ui.adb('shell', 'wm', 'density')
+    )
+    assert density_values, 'Native display density unavailable'
+    native_density = int(density_values[-1]) / 160
+    native_per_window_pixel = s['native_surface']['screen_rect'][3] / s['window'][1]
+    gap_dp = gap / (native_density * native_per_window_pixel)
+    # The implementation uses dp(8); test a small0..24dp native-screen gap,
+    # not a density-dependent fixed32physical-pixel limit.
+    assert 0 <= gap_dp <= 24, ('Lower field not just above IME', gap_dp, gap, s)
     ui.record('lowest_field_minimal_ime_gap')
     # Same-row handoff and double tap, again without closing IME.
     ime_field('x:UniversalPP', '12', 'pair_left')
@@ -286,6 +296,7 @@ try:
     current = [e['seq'] for e in events if e['session'] == session]
     assert current == sorted(set(current)), current
     assert payload['device']['commit'] == probe['metadata']['commit']
+    assert abs(payload['device']['density'] - native_density) < 0.01
     assert payload['device']['version_code'] > 1004001
     ui.adb('shell', 'input', 'keyevent', '4')
     s = ui.fresh()
@@ -332,6 +343,9 @@ try:
         'downloads_without_permission': True,
         'report_file': filename,
         'report_json_roundtrip': True,
+        'lowest_field_ime_gap_px': gap,
+        'lowest_field_ime_gap_dp': gap_dp,
+        'native_density_matches_app': True,
     }
 except Exception:
     result = {'status': 'FAIL', 'stacktrace': traceback.format_exc()}

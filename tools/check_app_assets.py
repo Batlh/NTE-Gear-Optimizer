@@ -12,7 +12,7 @@ from nte_gear_optimizer_app import texts
 
 font = TTFont(root / 'src/nte_gear_optimizer_app/assets/DejaVuSans.ttf')
 cmap = font.getBestCmap()
-required = set('ÄÖÜäöüß±√↔Δ')
+required = set('ÄÖÜäöüß±√↔Δ✓–')
 assert all(ord(ch) in cmap for ch in required)
 strings = []
 for value in vars(texts).values():
@@ -30,6 +30,13 @@ assert all(ord(ch) in cmap for text in strings for ch in text if not ch.isspace(
         }
     )
 )
+bold = TTFont(root / 'src/nte_gear_optimizer_app/assets/DejaVuSans-Bold.ttf')
+bold_cmap = bold.getBestCmap()
+assert all(ord(ch) in bold_cmap for ch in required)
+assert all(ord(ch) in bold_cmap for text in strings for ch in text if not ch.isspace())
+assert (root / 'design/design_tokens.json').read_bytes() == (
+    root / 'src/nte_gear_optimizer_app/assets/design_tokens.json'
+).read_bytes()
 catalog = json.loads(
     (root / 'src/nte_gear_optimizer_app/assets/catalog.json').read_text(
         encoding='utf-8'

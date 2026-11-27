@@ -23,7 +23,7 @@ with metadata.open('x', encoding='utf-8', newline='\n') as target:
             'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'])
             .decode()
             .strip(),
-            'app_version': '0.29.0 Phase 2A-3 (Test)',
+            'app_version': '0.29.0 Phase 2A-4 (Test)',
             'emulator_test_only': False,
         },
         target,

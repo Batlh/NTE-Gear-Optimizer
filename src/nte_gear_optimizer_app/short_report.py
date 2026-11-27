@@ -124,7 +124,7 @@ def render_short_report(payload):
         PRIVACY_NOTICE,
         'Zeitangaben in Millisekunden. Vollständige Details bei Bedarf über „Vollständig“.',
         json.dumps(value['device'], ensure_ascii=False),
-        'Langsamste10Vorgänge (>100ms: LANGSAM):',
+        'Langsamste 10 Vorgänge (>100 ms: LANGSAM):',
     ]
     heading.extend(
         ('LANGSAM | ' if row.get('over_100_ms') else '')
@@ -148,7 +148,7 @@ def render_short_report(payload):
     heading.extend(
         json.dumps(row, ensure_ascii=False, separators=(',', ':')) for row in errors
     )
-    heading += ['Letzte300Ereignisse (oder weniger):']
+    heading += ['Letzte 300 Ereignisse (oder weniger):']
     heading.extend(readable_event(row) for row in value['events'])
     return (
         '\n'.join(heading)

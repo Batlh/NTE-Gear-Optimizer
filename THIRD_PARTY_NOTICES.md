@@ -55,3 +55,16 @@ MIT grant; see AndroidX_APACHE2.txt and Kotlin_APACHE2.txt in
 third_party_licenses. Exact CI dependency resolution is retained with the build.
 The provider exposes only the app-cache debug_reports directory, only after
 an explicit sharing action. No network or storage permission is added.
+
+
+## Phase 2A-4 shared design and bold font
+
+DejaVu Sans Bold is bundled byte-for-byte alongside the existing Regular face.
+Both are from the same pinned Matplotlib commit
+268bd2203b52fd22f44aa00cc30e4f85a0d51f6a, under
+lib/matplotlib/mpl-data/fonts/ttf/. Bold SHA-256:
+B184B89E3C1075F22F6B71575B6FC20D4972B3CFD3B23322CA6FD596DCAEF167.
+The complete existing DejaVu/Bitstream license remains included unchanged.
+The Kiwi images are original project artwork, not third-party material.
+Shared color, contrast, spacing and typography roles live in
+design/design_tokens.json, byte-identically packaged with the application.

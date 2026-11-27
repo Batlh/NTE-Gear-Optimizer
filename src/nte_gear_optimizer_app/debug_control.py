@@ -20,6 +20,7 @@ from .debug_journal import (
     private_log_directory,
 )
 from .background_journal import BackgroundJournal
+from .design_tokens import rgba
 from .debug_export import (
     android_download,
     android_share,
@@ -88,12 +89,13 @@ class DebugControl:
 
     def device(self):
         values = {
-            'app_version': '0.29.0 Phase 2A-4 Teil A (Test)',
+            'app_version': '0.29.0 Phase 2A-4 (Test)',
             'commit': self.metadata.get('commit', 'development-unbundled'),
             'version_code': None,
             'platform': platform,
             'screen': list(Window.size),
             'density': Metrics.density,
+            'effective_clock_maxfps': Clock._max_fps,
         }
         if platform == 'android':
             try:
@@ -316,7 +318,12 @@ class DebugControl:
 
     def popup(self, title, actions):
         self.app.dismiss_keyboard()
-        popup = ModalView(size_hint=(0.95, 0.88), auto_dismiss=False)
+        popup = ModalView(
+            size_hint=(0.95, 0.88),
+            auto_dismiss=False,
+            background='',
+            background_color=rgba('surface'),
+        )
         layout = BoxLayout(orientation='vertical', padding=dp(12), spacing=dp(8))
         layout.add_widget(self.app.label(title))
         buttons = {}

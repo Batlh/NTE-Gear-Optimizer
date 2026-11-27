@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "colors": {
+    "background": "#10161F",
+    "surface": "#1A2330",
+    "surface2": "#222D3C",
+    "border": "#33414F",
+    "text": "#E8EDF3",
+    "muted": "#9AA8B8",
+    "accent": "#8BC34A",
+    "accent_ink": "#0F1A0A",
+    "accent_text": "#A5D66B",
+    "warning": "#FFB347",
+    "warning_text": "#FFCF7A",
+    "warning_surface": "#2B2418",
+    "equal": "#9AA8B8"
+  },
+  "radii_dp": {
+    "field": 10,
+    "button": 12,
+    "card": 16
+  },
+  "spacing_dp": [
+    8,
+    12,
+    16,
+    20
+  ],
+  "min_control_dp": 48,
+  "selector_row_dp": 52,
+  "font": {
+    "family": "DejaVu Sans",
+    "title_sp": 22,
+    "section_sp": 17,
+    "text_sp": 16,
+    "hint_sp": 14
+  },
+  "contrast_pairs": [
+    [
+      "text",
+      "background"
+    ],
+    [
+      "text",
+      "surface"
+    ],
+    [
+      "text",
+      "surface2"
+    ],
+    [
+      "muted",
+      "background"
+    ],
+    [
+      "muted",
+      "surface"
+    ],
+    [
+      "muted",
+      "surface2"
+    ],
+    [
+      "accent_text",
+      "background"
+    ],
+    [
+      "accent_text",
+      "surface"
+    ],
+    [
+      "accent_text",
+      "surface2"
+    ],
+    [
+      "equal",
+      "background"
+    ],
+    [
+      "equal",
+      "surface"
+    ],
+    [
+      "equal",
+      "surface2"
+    ],
+    [
+      "accent_ink",
+      "accent"
+    ],
+    [
+      "warning_text",
+      "warning_surface"
+    ],
+    [
+      "warning_text",
+      "background"
+    ],
+    [
+      "warning_text",
+      "surface"
+    ]
+  ]
+}

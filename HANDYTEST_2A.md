@@ -104,3 +104,28 @@ lassen. Keine gespeicherten Nutzerdaten vorhanden; Eingaben gelten je Sitzung.
   Berechnung und Export. Touch-Zeit beginnt bei Zustellung an die App und endet
   am ersten GL-Bildwechsel nach einer beobachteten Reaktion. Das ist eine
   Näherung und keine Messung der physischen Anzeige auf dem Gerät.
+
+
+## Ergänzung 2A-4
+
+- Signiertes Test-Update über 2A-3 installieren, ohne Deinstallation. Display auf
+  120 Hz stellen; Samsung-Tastatur und Energiesparmodus im Bericht notieren.
+- In allen vier Schritten und jeder Auswahlliste langsam und schnell scrollen.
+  Beginnt die Bewegung beim ersten Fingerzug? Ist sie „flüssig wie das Rad“?
+  Ja/nein und die betroffene Stelle notieren. CI-Emulator ersetzt diesen Test nicht.
+- Knöpfe/Felder kurz antippen, dann auf einem Feld wischen: sofort sichtbare
+  Rückmeldung, beim Wischen kein Fokus und keine Tastatur. Weiter/Zurück und
+  „kein Bonus (0)“ mehrfach benutzen; Werte und Feldhilfen müssen erhalten bleiben.
+- Unterstes Feld bei offener Tastatur erreichen; es steht knapp darüber, ohne
+  große Leerfläche. Zwischen links/rechts/oben/unten wechseln. Tastatur schließen:
+  zusätzlicher Platz verschwindet. Touch-Diagnose muss das endgültige Feld nennen.
+- Kiwi-Kopf, vier Schritte, markierte Auswahl, Ergebnis-Karten und aufklappbare
+  Einzelwerte prüfen. Bei „Unentscheidbar“ bleiben „Was fehlt“, bekannte Werte
+  und Erklärungen sichtbar. Umlaute, Pfeile und Häkchen lesbar?
+- Anschließend den standardmäßig gewählten Kurzbericht exportieren. Er enthält
+  Scroll-Bildzeiten, getrennte Tipp-Rückmeldung/Aktion und die langsamsten zehn
+  Vorgänge. Unter 200 KB ist das Ziel; „Vollständig“ bleibt auswählbar.
+- Bildrate am Gerät: Median mindestens 96 % der tatsächlich aktiven Frequenz
+  (bei 120 Hz mindestens 115 fps), unter 2 % verpasste Bilder. Angaben sind
+  GL-Bildwechsel-Näherungen, keine Messung physischer Pixel. Frequenzwechsel
+  und nicht belastbare Werte werden als ungeprüft ausgewiesen.

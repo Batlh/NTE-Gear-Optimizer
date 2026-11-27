@@ -30,13 +30,23 @@ from kivy.uix.label import Label
 from .responsive_scroll import ResponsiveScrollView
 from kivy.uix.modalview import ModalView
 from kivy.graphics import Color, Rectangle
+from kivy.uix.image import Image
+from .design_tokens import rgba, result_sections
+from .design_widgets import (
+    DesignButton,
+    DesignTextInput,
+    ResultCard,
+    VerdictMark,
+    StepSegments,
+)
 from kivy.uix.textinput import TextInput
 from .viewmodel import ComparisonViewModel, numeric_hint, ark_level_hint
 from . import texts as T
 from .performance import timed
 
 FONT = str(files('nte_gear_optimizer_app').joinpath('assets/DejaVuSans.ttf'))
-LabelBase.register(name='NTEText', fn_regular=FONT, fn_bold=FONT)
+BOLD_FONT = str(files('nte_gear_optimizer_app').joinpath('assets/DejaVuSans-Bold.ttf'))
+LabelBase.register(name='NTEText', fn_regular=FONT, fn_bold=BOLD_FONT)
 
 
 class ComparisonApp(App):
@@ -75,17 +85,21 @@ class ComparisonApp(App):
         self.factory_counts[kind] = index + 1
         return (kind, explicit if explicit is not None else index)
 
-    def label(self, text, size=17):
-        key = self.factory_key('label')
+    def label(self, text, size=16, *, cache_key=None, bold=False, color='text'):
+        key = self.factory_key('label', cache_key)
         if key is not None and key in self.building_page['controls']:
             label = self.building_page['controls'][key]
             if label.text != text:
                 label.text = text
             label.font_size = sp(size)
+            label.bold = bold
+            label.color = rgba(color)
             return label
         label = Label(
             text=text,
             font_name='NTEText',
+            bold=bold,
+            color=rgba(color),
             font_size=sp(size),
             halign='left',
             valign='middle',
@@ -103,22 +117,22 @@ class ComparisonApp(App):
             self.building_page['controls'][key] = label
         return label
 
-    def button(self, text, callback, *, cache_key=None):
+    def button(self, text, callback, *, cache_key=None, role='outline'):
         key = self.factory_key('button', cache_key)
         if key is not None and key in self.building_page['controls']:
             button = self.building_page['controls'][key]
             button._nte_callback = callback
+            button.role = role
             if button.text != text:
                 button.text = text
             return button
-        button = Button(
+        button = DesignButton(
             text=text,
             font_name='NTEText',
-            font_size=sp(17),
+            font_size=sp(16),
             size_hint_y=None,
             height=dp(52),
-            background_normal='',
-            background_color=(0.12, 0.37, 0.48, 1),
+            role=role,
         )
         button._nte_callback = callback
 
@@ -189,11 +203,11 @@ class ComparisonApp(App):
             size_hint=(0.96, 0.90),
             auto_dismiss=False,
             background='',
-            background_color=(0.08, 0.11, 0.15, 1),
+            background_color=rgba('surface'),
         )
         layout = BoxLayout(orientation='vertical', padding=dp(12), spacing=dp(8))
         with layout.canvas.before:
-            Color(0.08, 0.11, 0.15, 1)
+            Color(*rgba('surface'))
             background = Rectangle(pos=layout.pos, size=layout.size)
         layout.bind(
             pos=lambda w, v: setattr(background, 'pos', v),
@@ -227,7 +241,8 @@ class ComparisonApp(App):
             callback(value)
 
         for name, value in entries:
-            button = self.button(name, lambda value=value: select(value))
+            shown = ('✓  ' if value == self.selector_specs[title][1] else '') + name
+            button = self.button(shown, lambda value=value: select(value))
             rows.add_widget(button)
             self.selector_rows.append((value, name, button))
         scroll.add_widget(rows)
@@ -317,12 +332,12 @@ class ComparisonApp(App):
             if widget.text != (value or ''):
                 widget.text = value or ''
             return widget._nte_box
-        widget = TextInput(
+        widget = DesignTextInput(
             keyboard_mode='managed' if KIVY_PLATFORM == 'android' else 'auto',
             text=value or '',
             multiline=False,
             font_name='NTEText',
-            font_size=sp(18),
+            font_size=sp(16),
             size_hint_y=None,
             height=dp(50),
             write_tab=False,
@@ -356,7 +371,7 @@ class ComparisonApp(App):
             valign='middle',
             size_hint_y=None,
             height=0,
-            color=(1, 0.75, 0.35, 1),
+            color=rgba('warning_text'),
         )
         hint.bind(width=lambda _, width: setattr(hint, 'text_size', (width, None)))
 
@@ -410,7 +425,7 @@ class ComparisonApp(App):
 
     def build(self):
         Window.softinput_mode = 'below_target'
-        Window.clearcolor = (0.065, 0.085, 0.11, 1)
+        Window.clearcolor = rgba('background')
         self.root_box = BoxLayout(orientation='vertical', padding=dp(16), spacing=dp(8))
         from .debug_control import DebugControl
 
@@ -427,9 +442,34 @@ class ComparisonApp(App):
                 Window, Clock, self.debug.journal.emit
             )
         Window.bind(on_motion=self.observe_touch_lifetime)
-        self.root_box.add_widget(self.label(T.LOGO + '   ' + T.TITLE, 23))
-        self.root_box.add_widget(self.label(T.SUBTITLE, 14))
-        self.progress = self.label('', 20)
+        header = BoxLayout(spacing=dp(12), size_hint_y=None, height=dp(64))
+        header.add_widget(
+            Image(
+                source=str(
+                    files('nte_gear_optimizer_app').joinpath(
+                        'assets/icons/kiwi_slice_transparent_512.png'
+                    )
+                ),
+                size_hint=(None, 1),
+                width=dp(36),
+            )
+        )
+        titles = BoxLayout(orientation='vertical')
+        title = self.label(T.TITLE, 22, bold=True)
+        title.text_size = (None, None)
+        title.shorten = True
+        title.shorten_from = 'right'
+        title.height = dp(30)
+        title.bind(width=lambda w, v: setattr(w, 'text_size', (v, dp(30))))
+        titles.add_widget(title)
+        subtitle = self.label(T.SUBTITLE, 14, color='muted')
+        subtitle.height = dp(32)
+        titles.add_widget(subtitle)
+        header.add_widget(titles)
+        self.root_box.add_widget(header)
+        self.segments = StepSegments()
+        self.root_box.add_widget(self.segments)
+        self.progress = self.label('', 17, bold=True)
         self.root_box.add_widget(self.progress)
         self.scroll = ResponsiveScrollView(do_scroll_x=False)
         self.body = BoxLayout(orientation='vertical', spacing=dp(10), size_hint_y=None)
@@ -438,7 +478,7 @@ class ComparisonApp(App):
         self.root_box.add_widget(self.scroll)
         footer = BoxLayout(spacing=dp(12), size_hint_y=None, height=dp(54))
         self.back_button = self.button(T.BACK, self.go_back)
-        self.next_button = self.button(T.NEXT, self.go_next)
+        self.next_button = self.button(T.NEXT, self.go_next, role='primary')
         footer.add_widget(self.back_button)
         footer.add_widget(self.next_button)
         self.root_box.add_widget(footer)
@@ -451,8 +491,8 @@ class ComparisonApp(App):
                 14,
             )
         )
-        self.debug_button = self.button('Debug', self.debug.menu)
-        self.debug_button.height = dp(34)
+        self.debug_button = self.button('Debug', self.debug.menu, role='text')
+        self.debug_button.height = dp(48)
         self.root_box.add_widget(self.debug_button)
         self.render()
         if KIVY_PLATFORM == 'android':
@@ -609,7 +649,12 @@ class ComparisonApp(App):
         }
         for name, value in defaults.items():
             setattr(self, name, page['state'].get(name, value))
-        self.progress.text = T.STEPS[self.vm.step]
+        self.progress.text = (
+            'Aktuelles Teil ↔ Neues Teil'
+            if self.vm.step == 2
+            else T.STEPS[self.vm.step]
+        )
+        self.segments.step = self.vm.step
         self.back_button.disabled = self.vm.step == 0
         self.next_button.text = T.NEXT if self.vm.step < 3 else T.UI['recalculate']
         signature = self.page_signature()
@@ -648,57 +693,134 @@ class ComparisonApp(App):
         elif self.vm.step in (1, 2):
             self.values_screen(parts=self.vm.step == 2)
         else:
-            summary = self.vm.compact_display()
-            if self.vm.last_result['engine'].get('Verdict') is None:
-                leading, remaining = summary.split('\n\n' + T.CHANGED, 1)
-                self.body.add_widget(self.label(leading.split('\n\nWas fehlt', 1)[0]))
-                self.body.add_widget(self.label('Was fehlt', 21))
-                for step, messages in self.vm.missing_groups():
-                    self.body.add_widget(self.label(T.STEPS[step]))
-                    button = self.button(
-                        'Zu Schritt ' + str(step + 1),
-                        lambda step=step: self.jump_to(step),
-                    )
-                    self.jump_buttons[step] = button
-                    self.body.add_widget(button)
-                    self.body.add_widget(self.label('\n'.join(messages)))
-                # Place the jump immediately with the missing-input group;
-                # guide/hints must not push it several screens down.
-                remaining = T.CHANGED + remaining
-                markers = [
-                    remaining.index(marker)
-                    for marker in ('\n\nGuide\n', '\n\n' + T.HINTS + '\n')
-                    if marker in remaining
-                ]
-                split = min(markers) if markers else len(remaining)
-                self.body.add_widget(self.label(remaining[:split]))
-                self.body.add_widget(
-                    self.button(
-                        'Alle Werte zur Klärung'
-                        if not self.clarification_expanded
-                        else 'Klärungswerte einklappen',
-                        self.toggle_clarification,
-                    )
-                )
-                if self.clarification_expanded:
-                    self.body.add_widget(self.label(self.vm.clarification_display()))
-                self.body.add_widget(self.label(remaining[split:]))
-            else:
-                self.body.add_widget(self.label(summary))
-            self.details_button = self.button(
-                T.DETAILS_CLOSE if self.details_expanded else T.DETAILS_OPEN,
-                self.toggle_details,
+            self.result_screen()
+
+    def result_card(self, key):
+        cache = self.factory_key('card', key)
+        card = self.building_page['controls'].get(cache)
+        if card is None:
+            card = ResultCard()
+            self.building_page['controls'][cache] = card
+        card.begin_refresh()
+        self.body.add_widget(card)
+        return card
+
+    def result_screen(self):
+        leading, changed, guide, hints = result_sections(
+            self.vm.compact_display(), T.CHANGED, T.HINTS
+        )
+        engine = self.vm.last_result['engine']
+        top = self.result_card('verdict')
+        cache = self.factory_key('verdict_mark', 'result')
+        mark = self.building_page['controls'].get(cache)
+        if mark is None:
+            mark = VerdictMark()
+            self.building_page['controls'][cache] = mark
+        mark.verdict = engine.get('Verdict') or ''
+        top.add_widget(mark)
+        head = leading.split('\n\nWas fehlt', 1)[0]
+        title, _, rest = head.partition('\n')
+        color = (
+            'accent_text'
+            if engine.get('Verdict') == 'BETTER'
+            else ('warning_text' if engine.get('Verdict') == 'WORSE' else 'text')
+        )
+        top.add_widget(
+            self.label(title, 22, bold=True, color=color, cache_key='verdict:title')
+        )
+        if rest:
+            top.add_widget(self.label(rest, cache_key='verdict:rest'))
+        top.end_refresh()
+        if engine.get('Verdict') is None:
+            missing = self.result_card('missing')
+            missing.add_widget(
+                self.label('Was fehlt', 17, bold=True, cache_key='missing:title')
             )
-            self.body.add_widget(self.details_button)
-            if self.details_expanded:
-                self.all_values_button = self.button(
-                    T.SHOW_CHANGED if self.show_all_values else T.SHOW_ALL,
-                    self.toggle_all_values,
+            for step, messages in self.vm.missing_groups():
+                missing.add_widget(
+                    self.label(
+                        T.STEPS[step], 17, bold=True, cache_key=f'missing:{step}:title'
+                    )
                 )
-                self.body.add_widget(self.all_values_button)
-                self.body.add_widget(
-                    self.label(self.vm.details_display(self.show_all_values))
+                button = self.button(
+                    'Zu Schritt ' + str(step + 1),
+                    lambda step=step: self.jump_to(step),
+                    cache_key=f'missing:{step}:jump',
                 )
+                self.jump_buttons[step] = button
+                missing.add_widget(button)
+                missing.add_widget(
+                    self.label(
+                        '\n'.join(messages),
+                        color='warning_text',
+                        cache_key=f'missing:{step}:body',
+                    )
+                )
+            missing.end_refresh()
+        changes = self.result_card('changes')
+        changes.add_widget(
+            self.label('Was sich ändert', 17, bold=True, cache_key='changes:title')
+        )
+        changes.add_widget(
+            self.label(
+                changed.removeprefix(T.CHANGED).lstrip('\n'), cache_key='changes:body'
+            )
+        )
+        if engine.get('Verdict') is None:
+            changes.add_widget(
+                self.button(
+                    'Alle Werte zur Klärung'
+                    if not self.clarification_expanded
+                    else 'Klärungswerte einklappen',
+                    self.toggle_clarification,
+                    cache_key='clarification',
+                )
+            )
+            if self.clarification_expanded:
+                changes.add_widget(
+                    self.label(
+                        self.vm.clarification_display(), cache_key='clarification:body'
+                    )
+                )
+        changes.end_refresh()
+        guide_card = self.result_card('guide')
+        guide_card.add_widget(
+            self.label('Guide', 17, bold=True, cache_key='guide:title')
+        )
+        guide_card.add_widget(
+            self.label(
+                guide or T.NO_GUIDE,
+                14,
+                color='warning_text' if guide else 'muted',
+                cache_key='guide:body',
+            )
+        )
+        guide_card.end_refresh()
+        notes = self.result_card('hints')
+        notes.add_widget(self.label(T.HINTS, 17, bold=True, cache_key='hints:title'))
+        notes.add_widget(self.label(hints, cache_key='hints:body'))
+        notes.end_refresh()
+        details = self.result_card('details')
+        self.details_button = self.button(
+            T.DETAILS_CLOSE if self.details_expanded else T.DETAILS_OPEN,
+            self.toggle_details,
+            cache_key='details:toggle',
+        )
+        details.add_widget(self.details_button)
+        if self.details_expanded:
+            self.all_values_button = self.button(
+                T.SHOW_CHANGED if self.show_all_values else T.SHOW_ALL,
+                self.toggle_all_values,
+                cache_key='details:all',
+            )
+            details.add_widget(self.all_values_button)
+            details.add_widget(
+                self.label(
+                    self.vm.details_display(self.show_all_values),
+                    cache_key='details:body',
+                )
+            )
+        details.end_refresh()
 
     def jump_to(self, step):
         before = self.vm.step
@@ -841,9 +963,11 @@ class ComparisonApp(App):
     def values_screen(self, parts=False):
         self.body.add_widget(self.label(T.SWAP_NOTE if parts else T.CURRENT_NOTE))
         for name, fields in self.vm.groups(parts).items():
-            self.body.add_widget(self.label(T.GROUP_NAMES[name], 21))
+            self.body.add_widget(self.label(T.GROUP_NAMES[name], 17, bold=True))
             if parts or name != 'scale':
-                zero = self.button(T.ZERO, lambda name=name: self.zero(name, parts))
+                zero = self.button(
+                    T.ZERO, lambda name=name: self.zero(name, parts), role='pill'
+                )
                 self.zero_buttons.append(zero)
                 self.body.add_widget(zero)
             if parts:

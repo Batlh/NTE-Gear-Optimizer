@@ -437,7 +437,9 @@ class FieldProbe(ComparisonApp):
         self.capture_view(out, 'design_input_contrast')
         from PIL import Image
 
-        shot = max(out.glob('design_input_contrast*.png'))
+        # Client framebuffer avoids OS title-bar/border coordinate offsets.
+        Window.screenshot(name=str(out / 'design_input_pixels.png'))
+        shot = max(out.glob('design_input_pixels*.png'))
         image = Image.open(shot).convert('RGB')
         x, y = left.to_window(left.x, left.y)
         sx, sy = image.width / Window.width, image.height / Window.height

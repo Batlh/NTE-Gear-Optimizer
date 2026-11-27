@@ -75,6 +75,7 @@ try:
             break
         except AssertionError:
             pass
+    ui.record('design_step1_selection')
     for label, key in [
         ('Leistungstyp', 'DAMAGE'),
         ('Skalierung', 'ANG'),
@@ -87,6 +88,7 @@ try:
     ui.tap(s['next'], s)
     s = ui.fresh()
     assert s['step'] == 1
+    ui.record('design_step2_values')
     # A real swipe starting on an input must neither focus it nor open IME.
     rect, s = ui.reach(
         lambda s: s['inputs']['current:UniversalPP']['rect'], lambda s: s['page_scroll']
@@ -223,6 +225,7 @@ try:
     ui.tap(s['next'], s)
     s = ui.fresh()
     assert s['step'] == 3 and s['result'] is not None
+    ui.record('design_step4_indeterminate')
     assert '1' in s['jumps'], s['jumps']
     rect, s = ui.reach(lambda s: s['jumps']['1'], lambda s: s['page_scroll'])
     ui.tap(rect, s)
@@ -336,6 +339,72 @@ try:
         for e in timings
     )
     (ui.out / ('Downloads_' + download)).write_bytes(downloaded)
+    # Fresh real-input scenario for the delivered design's positive result.
+    # No state injection: selecting, typing and zero buttons use adb touches.
+    ui.adb('shell', 'am', 'force-stop', 'io.github.batlh.nte_gear_optimizer')
+    ui.adb(
+        'shell',
+        'am',
+        'start',
+        '-n',
+        'io.github.batlh.nte_gear_optimizer/org.kivy.android.PythonActivity',
+        '--ez',
+        'nte_ci_test',
+        'true',
+        '--ez',
+        'nte_a3_cause',
+        'true',
+    )
+    for _ in range(40):
+        time.sleep(1)
+        try:
+            fresh_state = ui.state()
+            if (
+                fresh_state['step'] == 0
+                and fresh_state['inputs']['level:ArkLevel']['text'] == ''
+            ):
+                break
+        except AssertionError:
+            pass
+    else:
+        raise AssertionError('Fresh design screenshot session failed to start')
+    for label, key in [
+        ('Leistungstyp', 'DAMAGE'),
+        ('Skalierung', 'ANG'),
+        ('Krit möglich?', 'FALSE'),
+        ('Bruch relevant?', 'FALSE'),
+        ('Zyklusreaktion', 'NONE'),
+    ]:
+        ui.choose(label, key)
+    s = ui.fresh()
+    ui.tap(s['next'], s)
+    s = ui.fresh()
+    ime_field('current:ScaleDirect', '100', 'design_current_100')
+    ui.adb('shell', 'input', 'keyevent', '66')
+    s = ui.fresh()
+    rect, s = ui.reach(lambda s: s['zeros'][0], lambda s: s['page_scroll'])
+    ui.tap(rect, s)
+    s = ui.fresh()
+    ui.tap(s['next'], s)
+    s = ui.fresh()
+    ui.record('design_step3_parts')
+    for key, value in [
+        ('x:ScaleDirect', '10'),
+        ('y:ScaleDirect', '20'),
+        ('x:ScalingPercentPP', '0'),
+        ('y:ScalingPercentPP', '0'),
+    ]:
+        ime_field(key, value, 'design_part_' + key.replace(':', '_'))
+    ui.adb('shell', 'input', 'keyevent', '66')
+    s = ui.fresh()
+    rect, s = ui.reach(lambda s: s['zeros'][1], lambda s: s['page_scroll'])
+    ui.tap(rect, s)
+    s = ui.fresh()
+    ui.tap(s['next'], s)
+    s = ui.fresh()
+    assert s['result']['engine']['Verdict'] == 'BETTER', s['result']
+    assert s['result']['engine']['VerdictRatio'] == '1.100000000'
+    ui.record('design_step4_better')
     result = {
         'status': 'PASS',
         'apk_commit': probe['metadata']['commit'],
@@ -346,6 +415,7 @@ try:
         'lowest_field_ime_gap_px': gap,
         'lowest_field_ime_gap_dp': gap_dp,
         'native_density_matches_app': True,
+        'design_positive_result_actual_input': True,
     }
 except Exception:
     result = {'status': 'FAIL', 'stacktrace': traceback.format_exc()}

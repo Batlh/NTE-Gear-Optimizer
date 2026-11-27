@@ -22,6 +22,9 @@ try:
         '--ez',
         'nte_ci_test',
         'true',
+        '--ez',
+        'nte_a3_cause',
+        'true',
     )
     for _ in range(40):
         time.sleep(1)
@@ -44,6 +47,11 @@ except Exception:
     failure = traceback.format_exc()
 finally:
     rows = []
+    collection_errors = []
+    (out / 'scenario_failure.txt').write_text(
+        failure or 'No scenario exception', encoding='utf-8', newline='\n'
+    )
+    (out / 'app_logcat.txt').write_text(ui.app_logs(), encoding='utf-8', newline='\n')
     for name in ['events_2.jsonl', 'events_1.jsonl', 'events_0.jsonl']:
         p = subprocess.run(
             [
@@ -56,18 +64,23 @@ finally:
             ],
             capture_output=True,
         )
-        if p.returncode == 0:
-            (out / name).write_bytes(p.stdout)
-            rows.extend(
-                json.loads(line)
-                for line in p.stdout.decode('utf-8').splitlines()
-                if line
-            )
+        (out / (name + '.raw.txt')).write_bytes(p.stdout)
+        for line in p.stdout.decode('utf-8', errors='replace').splitlines():
+            try:
+                row = json.loads(line)
+                if not isinstance(row, dict):
+                    raise ValueError('Expected journal record')
+                rows.append(row)
+            except ValueError:
+                collection_errors.append(
+                    {'file': name, 'line': line[:200], 'returncode': p.returncode}
+                )
     gestures = [r for r in rows if r.get('event') == 'scroll_gesture_metrics']
     measured = [r for r in gestures if r.get('status') == 'MEASURED_GL_FLIP_PROXY']
     result = {
         'status': 'MEASURED' if not failure and len(measured) >= 6 else 'FAIL',
         'failure': failure,
+        'collection_errors': collection_errors,
         'source_commit': probe['metadata']['commit']
         if 'metadata' in probe
         else probe.get('commit'),

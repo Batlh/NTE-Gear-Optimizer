@@ -150,8 +150,28 @@ class FieldProbe(ComparisonApp):
         # failed export clicked the previous button's coordinates instead.
         self.evidence.append({'os_click_requested': self.debug.trace.describe(widget)})
         native_button(widget, None)
-        Clock.schedule_once(lambda dt: native_button(widget, True), 0.12)
-        Clock.schedule_once(lambda dt: native_button(widget, False), 0.20)
+
+        def press_after_observed_motion(dt):
+            if self.result.get('status') == 'FAIL':
+                return False
+            x, y = widget.to_window(widget.center_x, widget.center_y)
+            actual = Window.mouse_pos
+            if abs(actual[0] - x) > 2 or abs(actual[1] - y) > 2:
+                if time.monotonic() - self.click_start_time >= 2.5:
+                    # Let the existing3s outcome deadline retain the failure.
+                    self.evidence.append(
+                        {'mouse_motion_not_ready': list(actual), 'requested': [x, y]}
+                    )
+                    return False
+                return True
+            self.evidence.append(
+                {'observed_sdl_pointer_before_down': list(actual), 'requested': [x, y]}
+            )
+            native_button(widget, True)
+            Clock.schedule_once(lambda _: native_button(widget, False), 0.08)
+            return False
+
+        Clock.schedule_interval(press_after_observed_motion, 0.01)
 
     def wait_click(self, predicate, description):
         # The CI VM can stall an SDL frame on disk I/O. A fixed sleep expired
@@ -274,11 +294,17 @@ class FieldProbe(ComparisonApp):
         self.debug.menu()
         yield 0.7
         self.click(self.active_debug[1]['Debug-Bericht exportieren'])
-        yield 0.7
+        yield from self.wait_click(
+            lambda: self.active_debug and 'Fortfahren' in self.active_debug[1],
+            'export_only_privacy',
+        )
         self.capture_view(out, 'privacy_notice')
         assert 'Fortfahren' in self.active_debug[1]
         self.click(self.active_debug[1]['Fortfahren'])
-        yield 1.2
+        yield from self.wait_click(
+            lambda: self.active_debug and 'Schließen' in self.active_debug[1],
+            'export_only_saved',
+        )
         self.capture_view(out, 'export_after_click')
         assert 'Schließen' in self.active_debug[1]
         exported = max((Path.home() / 'Downloads').glob('NTE_Debugbericht_*.txt'))

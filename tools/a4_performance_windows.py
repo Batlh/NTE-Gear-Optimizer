@@ -63,8 +63,14 @@ class PerformanceProbe(ComparisonApp):
         api.FindWindowW.restype = wintypes.HWND
         api.ClientToScreen.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.POINT)]
         api.SetForegroundWindow.argtypes = [wintypes.HWND]
+        api.SetForegroundWindow.argtypes = [wintypes.HWND]
+        api.GetForegroundWindow.restype = wintypes.HWND
         hwnd = api.FindWindowW(None, self.title)
         assert hwnd
+        api.SetForegroundWindow(hwnd)
+        assert api.GetForegroundWindow() == hwnd, (
+            'Isolated CI app window has no foreground focus'
+        )
         origin = wintypes.POINT(0, 0)
         assert api.ClientToScreen(hwnd, ctypes.byref(origin))
         api.SetForegroundWindow(hwnd)
@@ -99,8 +105,14 @@ class PerformanceProbe(ComparisonApp):
         api.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
         api.FindWindowW.restype = wintypes.HWND
         api.ClientToScreen.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.POINT)]
+        api.SetForegroundWindow.argtypes = [wintypes.HWND]
+        api.GetForegroundWindow.restype = wintypes.HWND
         hwnd = api.FindWindowW(None, self.title)
         assert hwnd
+        api.SetForegroundWindow(hwnd)
+        assert api.GetForegroundWindow() == hwnd, (
+            'Isolated CI app window has no foreground focus'
+        )
         origin = wintypes.POINT(0, 0)
         assert api.ClientToScreen(hwnd, ctypes.byref(origin))
         x, y = widget.to_window(widget.center_x, widget.center_y)

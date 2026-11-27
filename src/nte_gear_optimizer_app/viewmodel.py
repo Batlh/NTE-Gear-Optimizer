@@ -9,6 +9,7 @@ from nte_gear_optimizer.comparison.recommendation import compare
 from nte_gear_optimizer.comparison.robust_branches import Branch
 from .catalog import load_catalog, branch_profile
 from . import texts as T
+from .performance import timed
 
 MANUAL_RELEASE = {
     'ProfileType': 'UNKNOWN',
@@ -308,6 +309,7 @@ class ComparisonViewModel:
         except ValueUnavailable:
             return False
 
+    @timed('calculate')
     def calculate(self):
         fields = self.fields()
         errors = {}

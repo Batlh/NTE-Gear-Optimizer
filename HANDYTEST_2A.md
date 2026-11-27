@@ -93,3 +93,14 @@ lassen. Keine gespeicherten Nutzerdaten vorhanden; Eingaben gelten je Sitzung.
   „In Downloads speichern“ benutzen. Die lesbare Datei muss Eingaben, Auswahl,
   Fokus/Tastatur, Touch-Verbraucher und das Ergebnis enthalten. Kein automatischer
   Versand. „Protokoll leeren“ muss zunächst eine Rückfrage zeigen.
+
+### Dauern im Debug-Bericht (Ergänzung)
+
+- Auf dem Samsung in Schritt 1 die zeitweise träge Auswahl mehrfach benutzen,
+  anschließend zwei Berichte exportieren. Der zweite enthält auch die abgeschlossene
+  Dauer des ersten Exports. Im Bericht stehen die langsamsten 10 Vorgänge in ms;
+  über 100 ms wird LANGSAM markiert. Noch nichts optimieren.
+- Gemessen werden Seitenaufbau je Schritt, Listenaufbereitung/-aufbau/-öffnung,
+  Berechnung und Export. Touch-Zeit beginnt bei Zustellung an die App und endet
+  am ersten GL-Bildwechsel nach einer beobachteten Reaktion. Das ist eine
+  Näherung und keine Messung der physischen Anzeige auf dem Gerät.

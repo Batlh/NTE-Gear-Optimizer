@@ -450,6 +450,16 @@ class FieldProbe(ComparisonApp):
         )
         payload = json.loads(report.split(JSON_MARKER)[1])
         events = payload['events']
+        timings = [e for e in events if e['event'] == 'performance']
+        assert timings and payload['performance_summary']['slowest_10']
+        assert any(e['operation'] == 'render' for e in timings)
+        assert any(e['operation'] == 'touch_to_response_frame' for e in timings)
+        assert any(e['operation'] == 'export' for e in timings)
+        assert all(
+            isinstance(e['duration_ms'], (int, float))
+            and isinstance(e['over_100_ms'], bool)
+            for e in timings
+        )
         assert any(e['event'] == 'input' and e['raw'] == '2.560' for e in events)
         assert any(
             e['event'] == 'exception' and 'NTE_A3_TEST_EXCEPTION' in e['stacktrace']

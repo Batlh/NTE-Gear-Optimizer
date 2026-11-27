@@ -26,6 +26,7 @@ from .debug_export import (
     desktop_report,
 )
 from .diagnostic_trace import InputTrace
+from .performance import PerformanceTrace, timed
 from .viewmodel import ark_level_hint, normalize, numeric_hint
 
 
@@ -39,6 +40,8 @@ class DebugControl:
             self.activity = autoclass('org.kivy.android.PythonActivity').mActivity
             android_files = str(self.activity.getFilesDir().getAbsolutePath())
         self.journal = DebugJournal(private_log_directory(platform, android_files))
+        self.performance = PerformanceTrace(self.journal.emit)
+        Window.bind(on_flip=self.performance.frame)
         self.metadata = build_metadata()
         self.bound = weakref.WeakSet()
         self.overlay = False
@@ -102,9 +105,14 @@ class DebugControl:
         data['trace_seq'] = data.pop('seq')
         data['trace_ms'] = data.pop('ms')
         self.journal.emit(event, **data)
+        if event == 'focus' and row['focused']:
+            self.performance.response('focus')
+        if event == 'touch_accepted' and row['widget']['class'] == 'Button':
+            self.performance.response('button_pressed', row['touch_id'])
         if event == 'focus' and not row['focused']:
             self.journal.flush_inputs(row['widget'].get('field'), force=True)
         if event == 'motion_begin':
+            self.performance.touch_begin(row['touch_id'])
             self.consumer_depth = -1
             self.last_touch = [
                 row['normalized'][0] * Window.width,
@@ -242,6 +250,7 @@ class DebugControl:
         raw_map.update({key: widget.text for key, widget in self.app.inputs.items()})
         raws = list(raw_map.items())
         return {
+            'timing_in_progress': self.performance.in_progress(),
             'step': vm.step,
             'character_id': vm.character_id,
             'ark_id': vm.ark_id,
@@ -330,6 +339,7 @@ class DebugControl:
             [('Fortfahren', lambda: self.export(mode)), ('Abbrechen', self.menu)],
         )
 
+    @timed('export')
     def export(self, mode):
         self.journal.emit('report_export_requested', mode=mode)
         report = self.journal.report(self.device(), self.state())
@@ -361,6 +371,7 @@ class DebugControl:
             self.journal.exception(error, caught=True)
 
     def stop(self):
+        Window.unbind(on_flip=self.performance.frame)
         self.journal.flush_inputs(force=True)
         self.journal.emit('app_stop')
         ExceptionManager.remove_handler(self.exception_handler)

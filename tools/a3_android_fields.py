@@ -268,11 +268,27 @@ try:
     downloaded = ui.subprocess.check_output(
         ['adb', 'exec-out', 'cat', '/sdcard/Download/' + download]
     )
-    assert (
-        json.loads(downloaded.decode('utf-8').split('\n--- NTE_DEBUG_JSON ---\n')[1])[
-            'format'
-        ]
-        == 'NTE_DEBUG_V1'
+    downloaded_payload = json.loads(
+        downloaded.decode('utf-8').split('\n--- NTE_DEBUG_JSON ---\n')[1]
+    )
+    assert downloaded_payload['format'] == 'NTE_DEBUG_V1'
+    timings = [e for e in downloaded_payload['events'] if e['event'] == 'performance']
+    for operation in [
+        'render',
+        'selector_setup',
+        'selector_build',
+        'selector_open',
+        'calculate',
+        'export',
+        'touch_to_response_frame',
+    ]:
+        assert any(e['operation'] == operation for e in timings), operation
+    assert downloaded_payload['performance_summary']['slowest_10']
+    assert len(downloaded_payload['performance_summary']['slowest_10']) <= 10
+    assert all(
+        isinstance(e['duration_ms'], (int, float))
+        and isinstance(e['over_100_ms'], bool)
+        for e in timings
     )
     (ui.out / ('Downloads_' + download)).write_bytes(downloaded)
     result = {

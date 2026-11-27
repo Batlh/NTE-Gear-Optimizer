@@ -30,6 +30,7 @@ from kivy.graphics import Color, Rectangle
 from kivy.uix.textinput import TextInput
 from .viewmodel import ComparisonViewModel, numeric_hint, ark_level_hint
 from . import texts as T
+from .performance import timed
 
 FONT = str(files('nte_gear_optimizer_app').joinpath('assets/DejaVuSans.ttf'))
 LabelBase.register(name='NTEText', fn_regular=FONT, fn_bold=FONT)
@@ -92,6 +93,7 @@ class ComparisonApp(App):
         button.bind(on_release=lambda *_: callback())
         return button
 
+    @timed('selector_setup')
     def spinner(self, label, choices, current, callback):
         self.body.add_widget(self.label(label))
         mapping = {}
@@ -117,7 +119,15 @@ class ComparisonApp(App):
         self.selector_widgets[label] = widget
         self.body.add_widget(widget)
 
+    @timed('selector_total', frame=True)
     def open_selector(self, title, entries, callback):
+        build_token = (
+            self.debug.performance.start(
+                'selector_build', selector=title, step=self.vm.step + 1
+            )
+            if self.debug
+            else None
+        )
         self.dismiss_keyboard()
         if self.debug:
             self.debug.journal.emit(
@@ -188,6 +198,17 @@ class ComparisonApp(App):
         layout.add_widget(cancel)
         popup.add_widget(layout)
         self.active_selector = (title, popup, scroll, cancel)
+        if self.debug:
+            self.debug.performance.finish(build_token)
+            open_token = self.debug.performance.start(
+                'selector_open', selector=title, step=self.vm.step + 1
+            )
+            popup.bind(on_open=lambda *_: self.debug.performance.finish(open_token))
+            popup.bind(
+                on_dismiss=lambda *_: self.debug.performance.finish(
+                    open_token, failed=True
+                )
+            )
         popup.open()
         if self.debug:
             self.debug.trace.attach_tree(popup)
@@ -403,7 +424,9 @@ class ComparisonApp(App):
         self.vm.set_override(key, value)
         self.render()
 
+    @timed('render', frame=True)
     def render(self):
+        self.vm.performance = self.debug.performance if self.debug else None
         self.dismiss_keyboard()
         self.selector_specs = {}
         self.selector_widgets = {}

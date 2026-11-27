@@ -265,10 +265,50 @@ class DebugJournal:
                 'storage_failed': self.failed,
             }
         )
+        completed = [
+            row
+            for row in payload['events']
+            if row.get('event') == 'performance'
+            and isinstance(row.get('duration_ms'), (int, float))
+        ]
+        payload['performance_summary'] = {
+            'slowest_10': sorted(
+                completed, key=lambda row: row['duration_ms'], reverse=True
+            )[:10],
+            'completed_count_in_retained_log': len(completed),
+            'over_100_ms_count': sum(
+                row.get('over_100_ms') is True for row in completed
+            ),
+            'scope': 'Retained current/prior session only. GL surface flip is a presentation proxy, not physical display latency. The currently running export finishes after its file is generated; its completed duration is available in the next report.',
+        }
         heading = ['NTE Gear Optimizer – Debugbericht', PRIVACY_NOTICE]
         heading += [
             f'{key}: {json.dumps(value, ensure_ascii=False)}'
             for key, value in payload['device'].items()
+        ]
+        heading += [
+            '',
+            'Dauern in Millisekunden – langsamste 10 abgeschlossene Vorgänge:',
+            'Über 100 ms: LANGSAM. Nur Messungen, keine automatische Optimierung.',
+            'Touch: ab Zustellung an die App bis zum ersten GL-Bildwechsel nach bekannter Reaktion; keine Messung der physischen Anzeige.',
+            'Der laufende Export ist erst im nächsten Bericht vollständig messbar.',
+        ]
+        heading += [
+            ('LANGSAM | ' if row.get('over_100_ms') else '')
+            + str(row.get('operation'))
+            + ': '
+            + str(row['duration_ms'])
+            + ' ms'
+            + ' | '
+            + json.dumps(
+                {
+                    key: row[key]
+                    for key in ('step', 'selector', 'mode', 'endpoint', 'reaction')
+                    if key in row
+                },
+                ensure_ascii=False,
+            )
+            for row in payload['performance_summary']['slowest_10']
         ]
         heading += [
             '',

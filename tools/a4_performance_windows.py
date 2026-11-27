@@ -19,9 +19,11 @@ from kivy.config import Config
 
 Config.set('graphics', 'width', '900')
 Config.set('graphics', 'height', '700')
+# Match the delivered entry point: its frame policy must run before Window
+# instantiates Kivy's Clock, which reads maxfps only at construction.
+from nte_gear_optimizer_app.app import ComparisonApp
 from kivy.clock import Clock
 from kivy.core.window import Window
-from nte_gear_optimizer_app.app import ComparisonApp
 
 OUT = Path('build/a4_performance_windows')
 OUT.mkdir(parents=True, exist_ok=False)
@@ -29,6 +31,9 @@ OUT.mkdir(parents=True, exist_ok=False)
 
 class PerformanceProbe(ComparisonApp):
     def on_start(self):
+        assert Clock._max_fps == Config.getint('graphics', 'maxfps'), (
+            'Benchmark initialized Clock before app frame policy'
+        )
         self.actions = self.scenario()
         self.failure = None
         self.drag_error = None
@@ -192,6 +197,8 @@ class PerformanceProbe(ComparisonApp):
                 ['git', 'rev-parse', 'HEAD'], text=True
             ).strip(),
             'platform': 'windows',
+            'effective_clock_maxfps': Clock._max_fps,
+            'configured_maxfps': Config.getint('graphics', 'maxfps'),
             'frozen_baseline': os.environ.get('NTE_A4_FROZEN_BASELINE') == '1',
             'measurement_driver_sha256': __import__('hashlib')
             .sha256(Path(__file__).read_bytes())

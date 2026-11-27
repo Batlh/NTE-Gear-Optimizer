@@ -16,12 +16,13 @@ from kivy.config import Config
 
 Config.set('graphics', 'width', '900')
 Config.set('graphics', 'height', '700' if sys.platform == 'win32' else '850')
+# Use the delivered app startup order before creating Clock/Window.
+from nte_gear_optimizer_app.app import ComparisonApp
 from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.uix.scrollview import ScrollView
-from nte_gear_optimizer_app.app import ComparisonApp
 from nte_gear_optimizer_app.viewmodel import ComparisonViewModel
 from nte_gear_optimizer_app.debug_journal import JSON_MARKER
 

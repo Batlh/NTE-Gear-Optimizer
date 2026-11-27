@@ -70,10 +70,7 @@ class GeometryApp(App):
                 ) == geometry
                 assert tuple(widget.fill.pos) == tuple(widget.edge.pos) == (x, y)
                 assert widget.fill.source == fill_source
-                assert (
-                    widget.decoration_position.x == x
-                    and widget.decoration_position.y == y
-                )
+                assert tuple(widget.edge.size) == tuple(widget.size)
             widget.width += dp(20)
             yield 0.1
             assert (

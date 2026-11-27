@@ -7,6 +7,8 @@ from pathlib import Path
 import re
 import subprocess
 
+from sign_android import certificate_metadata
+
 assert os.environ.get('GITHUB_ACTIONS') == 'true'
 out = Path('build/a3_update_static')
 out.mkdir(parents=True, exist_ok=False)
@@ -29,12 +31,10 @@ for role, apk in [('baseline_2a2', baseline), ('candidate_2a3', candidate)]:
     certificate = subprocess.check_output(
         [str(tools / 'apksigner'), 'verify', '--print-certs', str(apk)], text=True
     )
-    fingerprints = re.findall(
-        r'Signer #\d+ certificate SHA-256 digest: (\S+)', certificate
-    )
-    owners = re.findall(r'Signer #\d+ certificate DN: (.+)', certificate)
-    assert len(fingerprints) == len(owners) == 1
-    fingerprint = fingerprints[0].replace(':', '').upper()
+    # Reuse the signing job's parser: current apksigner labels schemes
+    # V2/V3, older tools use Signer #1. One consistent public certificate
+    # is required across all schemes; disagreement still fails closed.
+    owner, fingerprint = certificate_metadata(certificate)
     assert fingerprint == expected
     badging = subprocess.check_output(
         [str(tools / 'aapt2'), 'dump', 'badging', str(apk)], text=True
@@ -54,7 +54,7 @@ for role, apk in [('baseline_2a2', baseline), ('candidate_2a3', candidate)]:
             'sha256': hashlib.sha256(apk.read_bytes()).hexdigest().upper(),
             'package': package,
             'version_code': version,
-            'certificate_owner': owners[0],
+            'certificate_owner': owner,
             'certificate_sha256': fingerprint,
             'native_code': arches,
             'permissions': permissions,

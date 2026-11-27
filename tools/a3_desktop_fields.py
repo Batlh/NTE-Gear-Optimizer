@@ -43,7 +43,8 @@ def native_button(widget, pressed):
         assert api.ClientToScreen(handle, ctypes.byref(origin))
         api.SetForegroundWindow(handle)
         api.SetCursorPos(int(origin.x + x), int(origin.y + Window.height - y))
-        api.mouse_event(0x0002 if pressed else 0x0004, 0, 0, 0, 0)
+        if pressed is not None:
+            api.mouse_event(0x0002 if pressed else 0x0004, 0, 0, 0, 0)
     else:
         x11 = ctypes.CDLL('libX11.so.6')
         xtst = ctypes.CDLL('libXtst.so.6')
@@ -69,7 +70,8 @@ def native_button(widget, pressed):
         xtst.XTestFakeMotionEvent(
             display, -1, int(Window.left + x), int(Window.top + Window.height - y), 0
         )
-        xtst.XTestFakeButtonEvent(display, 1, int(pressed), 0)
+        if pressed is not None:
+            xtst.XTestFakeButtonEvent(display, 1, int(pressed), 0)
         x11.XFlush(display)
         x11.XCloseDisplay(display)
 
@@ -139,8 +141,13 @@ class FieldProbe(ComparisonApp):
         self.stop()
 
     def click(self, widget):
-        native_button(widget, True)
-        Clock.schedule_once(lambda dt: native_button(widget, False), 0.05)
+        # Windows SDL receives mouse-motion asynchronously. Do not post the
+        # down event in the same event-loop turn as SetCursorPos: the proven
+        # failed export clicked the previous button's coordinates instead.
+        self.evidence.append({'os_click_requested': self.debug.trace.describe(widget)})
+        native_button(widget, None)
+        Clock.schedule_once(lambda dt: native_button(widget, True), 0.12)
+        Clock.schedule_once(lambda dt: native_button(widget, False), 0.20)
 
     def clipped(self, widget):
         box = [*widget.to_window(*widget.pos), *widget.size]

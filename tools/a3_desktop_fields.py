@@ -317,6 +317,29 @@ class FieldProbe(ComparisonApp):
         self.debug.menu()
         yield 0.5
         self.capture_view(out, 'debug_menu')
+        self.click(self.active_debug[1]['Debug-Bericht exportieren'])
+        yield 0.5
+        assert 'Fortfahren' in self.active_debug[1]
+        self.click(self.active_debug[1]['Fortfahren'])
+        yield 0.8
+        assert 'Schließen' in self.active_debug[1]
+        exported = max((Path.home() / 'Downloads').glob('NTE_Debugbericht_*.txt'))
+        saved = exported.read_text(encoding='utf-8')
+        assert json.loads(saved.split(JSON_MARKER)[1])['format'] == 'NTE_DEBUG_V1'
+        assert str(Path.home()) not in saved
+        assert any(
+            getattr(w, 'text', None) == str(exported)
+            for w in self.active_debug[0].walk()
+        )
+        (out / 'NTE_Debugbericht_desktop_saved.txt').write_bytes(exported.read_bytes())
+        self.evidence.append(
+            {
+                'desktop_export_via_os_mouse': 'PASS',
+                'saved_report_json': 'PASS',
+                'destination_displayed': 'PASS',
+            }
+        )
+        self.capture_view(out, 'debug_export_saved')
         self.active_debug[0].dismiss()
         self.active_debug = None
         # An actual private journal report, not fabricated expected events.

@@ -87,12 +87,66 @@ try:
     s = ui.fresh()
     assert s['step'] == 1
     # Required down/up handoff with the keyboard left open at every tap.
+    handoff_events = {}
     for key, value, name in [
         ('current:UniversalPP', '12', 'keyboard_A'),
         ('current:OtherPP', '34', 'keyboard_B_lower'),
         ('current:ElementPP', '56', 'keyboard_C_upper'),
     ]:
         ime_field(key, value, name)
+        for line in ui.adb('logcat', '-d', '-t', '6000').splitlines():
+            if 'NTE_A3_EVENT=' in line:
+                event = json.loads(line.split('NTE_A3_EVENT=', 1)[1])
+                handoff_events[event['seq']] = event
+    ordered = [handoff_events[key] for key in sorted(handoff_events)]
+    first = next(
+        e
+        for e in ordered
+        if e['event'] == 'focus'
+        and e.get('focused')
+        and e.get('widget', {}).get('field') == 'current:UniversalPP'
+    )
+    last = next(
+        e
+        for e in ordered
+        if e['event'] == 'focus'
+        and e.get('focused')
+        and e.get('widget', {}).get('field') == 'current:ElementPP'
+    )
+    assert not [
+        e
+        for e in ordered
+        if first['seq'] < e['seq'] <= last['seq']
+        and e['event'] in ('request_keyboard_before', 'release_keyboard_before')
+    ], ordered
+    open_frame = next(
+        e
+        for e in ordered
+        if e['seq'] > first['seq']
+        and e['event'] == 'native_visible_frame'
+        and e['frame'][3] <= ui.timeline[-1]['state']['frame'][3] + 2
+    )
+    assert not [
+        e
+        for e in ordered
+        if e['seq'] > open_frame['seq']
+        and e['event'] == 'native_visible_frame'
+        and e['frame'][3] > open_frame['frame'][3] + 100
+    ], ordered
+    (ui.out / 'keyboard_handoff_evidence.json').write_text(
+        json.dumps(
+            {
+                'status': 'PASS',
+                'no_native_release_request_during_handoff': True,
+                'no_ime_hide_frame_during_handoff': True,
+                'events': ordered,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding='utf-8',
+        newline='\n',
+    )
     ui.adb('shell', 'input', 'keyevent', '66')
     s = ui.fresh()
     ui.tap(s['next'], s)
@@ -199,10 +253,33 @@ try:
     assert current == sorted(set(current)), current
     assert payload['device']['commit'] == probe['metadata']['commit']
     assert payload['device']['version_code'] > 1002601
+    ui.adb('shell', 'input', 'keyevent', '4')
+    s = ui.fresh()
+    ui.tap(s['debug_button'], s)
+    debug_action('In Downloads speichern')
+    debug_action('Fortfahren')
+    ui.record('downloads_saved')
+    names = ui.adb('shell', 'ls', '/sdcard/Download').splitlines()
+    download = max(
+        name.strip()
+        for name in names
+        if name.startswith('NTE_Debugbericht_') and name.endswith('.txt')
+    )
+    downloaded = ui.subprocess.check_output(
+        ['adb', 'exec-out', 'cat', '/sdcard/Download/' + download]
+    )
+    assert (
+        json.loads(downloaded.decode('utf-8').split('\n--- NTE_DEBUG_JSON ---\n')[1])[
+            'format'
+        ]
+        == 'NTE_DEBUG_V1'
+    )
+    (ui.out / ('Downloads_' + download)).write_bytes(downloaded)
     result = {
         'status': 'PASS',
         'apk_commit': probe['metadata']['commit'],
         'share_chooser': True,
+        'downloads_without_permission': True,
         'report_file': filename,
         'report_json_roundtrip': True,
     }

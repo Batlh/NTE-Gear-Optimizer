@@ -173,6 +173,7 @@ def install_probe(app):
             state['performance_probe'] = {
                 **perf_state,
                 'display': summary['display'],
+                'physics': summary['physics'],
                 'gestures': summary['gestures'][-8:],
                 'journal_seq': app.debug.journal.seq,
                 'body_padding': list(app.body.padding),

@@ -65,14 +65,15 @@ class MinimalKeyboardViewport:
 
     def update(self, dt=0):
         try:
+            widget = self.focused()
+            if widget is None:
+                self.reset()
+                return
             state = self.read_native()
             if not state['visible']:
                 self.reset()
                 return
             if getattr(self.app, 'active_touches', None):
-                return
-            widget = self.focused()
-            if widget is None:
                 return
             if self.target is not widget:
                 self.target = widget

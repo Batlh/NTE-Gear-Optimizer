@@ -35,7 +35,9 @@ class NativeScrollEffect(ScrollEffect):
                     autoclass('android.view.ViewConfiguration').getScrollFriction()
                 )
             except Exception as error:
-                self.native_failure = type(error).__name__
+                from .debug_journal import private_traceback
+
+                self.native_failure = private_traceback(error)
 
     def start(self, val, t=None):
         if self.native is not None:

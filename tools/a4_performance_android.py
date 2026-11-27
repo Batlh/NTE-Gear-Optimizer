@@ -35,6 +35,8 @@ try:
             pass
     else:
         raise AssertionError('App did not produce a native UI observation')
+    physics = s['performance_probe']['physics']
+    assert physics and all(row['android_over_scroller'] for row in physics), physics
     blocks = []
     for enabled in [True, False, False, True]:
         ui.adb(
@@ -126,6 +128,7 @@ finally:
         else probe.get('commit'),
         'platform': 'android_emulator',
         'logging_blocks': locals().get('blocks', []),
+        'physics': locals().get('physics'),
         'idle_flips_in_two_seconds': locals().get('idle_flips'),
         'gestures': gestures,
         'apk_probe': probe,

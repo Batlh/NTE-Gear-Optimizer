@@ -64,8 +64,10 @@ def test_geometry_failure_is_local_and_does_not_gate_calculation():
     def fail():
         raise RuntimeError('fixture native unavailable')
 
+    body = SimpleNamespace(parent=None)
+    focused = SimpleNamespace(focus=True, parent=body)
     view = MinimalKeyboardViewport(
-        SimpleNamespace(),
+        SimpleNamespace(body=body, inputs={('x', 'ScaleDirect'): focused}),
         SimpleNamespace(),
         clock,
         fail,
@@ -74,3 +76,20 @@ def test_geometry_failure_is_local_and_does_not_gate_calculation():
     view.update()
     view.update()
     assert len(events) == 1 and 'RuntimeError' in events[0][1]['stacktrace']
+
+
+def test_no_native_window_traversal_when_no_field_has_focus():
+    body = SimpleNamespace(padding=[0, 0, 0, 0])
+    app = SimpleNamespace(
+        body=body, inputs={('level', 'ArkLevel'): SimpleNamespace(focus=False)}
+    )
+    reads = []
+    view = MinimalKeyboardViewport(
+        app,
+        None,
+        SimpleNamespace(schedule_interval=lambda *a: None),
+        lambda: reads.append(True),
+        lambda *a, **k: None,
+    )
+    view.update()
+    assert reads == []

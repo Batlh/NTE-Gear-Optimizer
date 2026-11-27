@@ -90,7 +90,21 @@ class ScrollObserver:
         scroll.bind(scroll_y=changed)
 
     def summary(self):
-        return {'display': self.display, **self.metrics.summary()}
+        physics = []
+        for scroll, label in list(self.labels.items()):
+            effect = getattr(scroll, 'effect_y', None)
+            physics.append(
+                {
+                    'scroll': label,
+                    'effect': type(effect).__name__,
+                    'android_over_scroller': getattr(effect, 'native', None)
+                    is not None,
+                    'native_failure': getattr(effect, 'native_failure', None),
+                    'scroll_distance': scroll.scroll_distance,
+                    'scroll_timeout': scroll.scroll_timeout,
+                }
+            )
+        return {'display': self.display, 'physics': physics, **self.metrics.summary()}
 
     def stop(self):
         self.metrics.finish()

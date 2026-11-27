@@ -29,7 +29,7 @@ from kivy.uix.button import Button
 from kivy.uix.label import Label
 from .responsive_scroll import ResponsiveScrollView
 from kivy.uix.modalview import ModalView
-from kivy.graphics import Color, Rectangle
+from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.uix.image import Image
 from .design_tokens import rgba, result_sections
 from .design_widgets import (
@@ -717,7 +717,18 @@ class ComparisonApp(App):
             mark = VerdictMark()
             self.building_page['controls'][cache] = mark
         mark.verdict = engine.get('Verdict') or ''
-        top.add_widget(mark)
+        from .reconcile_layout import ReconcileLayout
+
+        row_key = self.factory_key('result_header', 'verdict')
+        row = self.building_page['controls'].get(row_key)
+        if row is None:
+            row = ReconcileLayout(
+                orientation='horizontal', size_hint_y=None, height=dp(48), spacing=dp(8)
+            )
+            self.building_page['controls'][row_key] = row
+        row.begin_refresh()
+        row.add_widget(mark)
+        top.add_widget(row)
         head = leading.split('\n\nWas fehlt', 1)[0]
         title, _, rest = head.partition('\n')
         color = (
@@ -725,11 +736,18 @@ class ComparisonApp(App):
             if engine.get('Verdict') == 'BETTER'
             else ('warning_text' if engine.get('Verdict') == 'WORSE' else 'text')
         )
-        top.add_widget(
-            self.label(title, 22, bold=True, color=color, cache_key='verdict:title')
+        row.add_widget(
+            self.label(
+                T.VERDICTS.get(engine.get('Verdict'), 'Unentscheidbar'),
+                22,
+                bold=True,
+                color=color,
+                cache_key='verdict:title',
+            )
         )
+        row.end_refresh()
         if rest:
-            top.add_widget(self.label(rest, cache_key='verdict:rest'))
+            top.add_widget(self.label(rest, 14, cache_key='verdict:rest'))
         top.end_refresh()
         if engine.get('Verdict') is None:
             missing = self.result_card('missing')
@@ -787,6 +805,24 @@ class ComparisonApp(App):
         guide_card.add_widget(
             self.label('Guide', 17, bold=True, cache_key='guide:title')
         )
+        if guide:
+            badge = self.label(
+                'für 1.5 ungeprüft' if T.GUIDE_WARNING in guide else 'Richtwert',
+                14,
+                color='warning_text',
+                cache_key='guide:badge',
+            )
+            if not hasattr(badge, '_nte_status_background'):
+                with badge.canvas.before:
+                    Color(*rgba('warning_surface'))
+                    badge._nte_status_background = RoundedRectangle(
+                        pos=badge.pos, size=badge.size, radius=[dp(10)]
+                    )
+                badge.bind(
+                    pos=lambda w, v: setattr(w._nte_status_background, 'pos', v),
+                    size=lambda w, v: setattr(w._nte_status_background, 'size', v),
+                )
+            guide_card.add_widget(badge)
         guide_card.add_widget(
             self.label(
                 guide or T.NO_GUIDE,

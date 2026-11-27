@@ -10,6 +10,8 @@ import traceback
 if os.environ.get('GITHUB_ACTIONS') != 'true':
     raise SystemExit('Only on isolated CI; never foreground a local user application')
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
+
 from kivy.config import Config
 
 Config.set('graphics', 'width', '900')

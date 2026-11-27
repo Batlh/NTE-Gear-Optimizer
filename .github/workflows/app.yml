@@ -2,8 +2,10 @@ name: phase2a-app
 on:
   push:
     branches: [v029-phase2a]
+    paths-ignore: [tools/a3_*.py, .github/workflows/phase2a3-cause.yml]
   pull_request:
     branches: [v029-phase2a]
+    paths-ignore: [tools/a3_*.py, .github/workflows/phase2a3-cause.yml]
 permissions:
   contents: read
 jobs:

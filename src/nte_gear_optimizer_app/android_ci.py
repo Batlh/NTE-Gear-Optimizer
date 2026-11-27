@@ -14,7 +14,7 @@ def install_probe(app):
     metadata = json.loads(Path('BUILD_METADATA.json').read_text(encoding='utf-8'))
     if not metadata.get('emulator_test_only'):
         return
-    from jnius import autoclass
+    from jnius import autoclass, cast
 
     activity = autoclass('org.kivy.android.PythonActivity').mActivity
     if not activity.getIntent().getBooleanExtra('nte_ci_test', False):
@@ -22,6 +22,55 @@ def install_probe(app):
     from kivy.clock import Clock
     from kivy.core.window import Window
     from collections import deque
+
+    a3 = activity.getIntent().getBooleanExtra('nte_a3_cause', False)
+    trace = None
+    if a3:
+        from .diagnostic_trace import InputTrace
+
+        trace = InputTrace(
+            app,
+            lambda row: print(
+                'NTE_A3_EVENT=' + json.dumps(row, ensure_ascii=True), flush=True
+            ),
+        )
+        trace.attach_window(Window)
+        trace.attach_tree(app.root_box)
+        original_render = app.render
+
+        def traced_render(*args, **kwargs):
+            original_render(*args, **kwargs)
+            trace.attach_tree(app.root_box)
+
+        app.render = traced_render
+
+    def native_surface():
+        # Actual Android screen coordinates; never infer native IME panning
+        # from the Kivy matrix or the window's visible-frame top.
+        java_class = autoclass('java.lang.Class')
+        surface_type = java_class.forName('android.view.SurfaceView')
+        group_type = java_class.forName('android.view.ViewGroup')
+
+        def find(view):
+            if surface_type.isInstance(view):
+                return view
+            if group_type.isInstance(view):
+                group = cast('android.view.ViewGroup', view)
+                for i in range(group.getChildCount()):
+                    found = find(group.getChildAt(i))
+                    if found is not None:
+                        return found
+            return None
+
+        surface = find(activity.getWindow().getDecorView())
+        if surface is None:
+            return {'error': 'SurfaceView not found'}
+        location = [0, 0]
+        surface.getLocationOnScreen(location)
+        return {
+            'screen_rect': [*location, surface.getWidth(), surface.getHeight()],
+            'class': str(surface.getClass().getName()),
+        }
 
     motions = deque(maxlen=16)
 
@@ -87,6 +136,24 @@ def install_probe(app):
             'next': rect(app.next_button),
             'back': rect(app.back_button),
         }
+        if a3:
+            try:
+                state['native_surface'] = native_surface()
+                state['input_visibility'] = {
+                    group + ':' + field: trace.describe(widget)
+                    for (group, field), widget in app.inputs.items()
+                }
+                frame_values = [frame.left, frame.top, frame.right, frame.bottom]
+                if getattr(app, '_a3_last_frame', None) != frame_values:
+                    trace.emit(
+                        'native_visible_frame',
+                        frame=frame_values,
+                        surface=state['native_surface'],
+                    )
+                    app._a3_last_frame = frame_values
+            except Exception as error:
+                state['native_surface'] = {'error': type(error).__name__}
+
         if app.active_selector:
             title, popup, scroll, cancel = app.active_selector
             state['modal'] = {

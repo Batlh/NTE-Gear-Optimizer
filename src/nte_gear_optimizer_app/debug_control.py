@@ -23,6 +23,7 @@ from .background_journal import BackgroundJournal
 from .debug_export import (
     android_download,
     android_share,
+    android_share_context,
     build_metadata,
     desktop_report,
 )
@@ -408,6 +409,11 @@ class DebugControl:
         token = self.performance.start('export', mode=mode)
         self.journal.emit('report_export_requested', mode=mode, full=self.full_report)
         device, state, full = self.device(), self.state(), self.full_report
+        share_context = (
+            android_share_context()
+            if platform == 'android' and mode == 'share'
+            else None
+        )
 
         def work():
             import threading
@@ -421,7 +427,7 @@ class DebugControl:
                 destination = (
                     android_download(report, filename)
                     if mode == 'downloads'
-                    else android_share(report, filename)
+                    else android_share(report, filename, context=share_context)
                 )
             else:
                 destination = desktop_report(report, filename)

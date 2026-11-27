@@ -1,12 +1,16 @@
 import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor
+import pytest
 from pathlib import Path
 from types import SimpleNamespace
 
-from nte_gear_optimizer_app.debug_export import android_share
+from nte_gear_optimizer_app.debug_export import android_share, android_share_context
 
 
+@pytest.mark.parametrize('in_worker', [False, True])
 def test_chooser_uses_explicit_java_charsequence_and_read_only_content_uri(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, in_worker
 ):
     calls = []
 
@@ -82,10 +86,22 @@ def test_chooser_uses_explicit_java_charsequence_and_read_only_content_uri(
         assert name == 'android.os.Parcelable'
         return value
 
+    app_thread = threading.current_thread().name
+
+    def autoclass(name):
+        if name in (
+            'androidx.core.content.FileProvider',
+            'org.kivy.android.PythonActivity',
+        ):
+            assert threading.current_thread().name == app_thread, (
+                'APK class loaded by worker'
+            )
+        return classes[name]
+
     monkeypatch.setitem(
         sys.modules,
         'jnius',
-        SimpleNamespace(autoclass=lambda name: classes[name], cast=cast),
+        SimpleNamespace(autoclass=autoclass, cast=cast),
     )
     dispatch = []
 
@@ -101,7 +117,15 @@ def test_chooser_uses_explicit_java_charsequence_and_read_only_content_uri(
         sys.modules, 'android.runnable', SimpleNamespace(run_on_ui_thread=run_ui)
     )
     text = 'Umlaute äöüß – 🥝'
-    assert android_share(text, 'report.txt') == 'report.txt'
+    if in_worker:
+        context = android_share_context()
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            result = pool.submit(
+                android_share, text, 'report.txt', context=context
+            ).result()
+    else:
+        result = android_share(text, 'report.txt')
+    assert result == 'report.txt'
     assert (tmp_path / 'debug_reports/report.txt').read_text(encoding='utf-8') == text
     assert dispatch == ['requested']
     assert len(calls) == 1

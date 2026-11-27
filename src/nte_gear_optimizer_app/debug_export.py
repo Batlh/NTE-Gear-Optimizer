@@ -13,16 +13,32 @@ def desktop_report(report, filename):
     return str(path)
 
 
-def android_share(report, filename):
+def android_share_context():
+    """Resolve APK classes on the existing app thread before worker handoff.
+
+    A newly attached native worker cannot FindClass the AndroidX provider
+    through Android's bootstrap class loader. Keep the loaded class reference;
+    report/file creation and provider URI work still run in the worker.
+    """
+    from jnius import autoclass
+
+    return {
+        'activity': autoclass('org.kivy.android.PythonActivity').mActivity,
+        'provider': autoclass('androidx.core.content.FileProvider'),
+    }
+
+
+def android_share(report, filename, *, context=None):
     from jnius import autoclass, cast
 
-    activity = autoclass('org.kivy.android.PythonActivity').mActivity
+    context = context if context is not None else android_share_context()
+    activity = context['activity']
     directory = Path(str(activity.getCacheDir().getAbsolutePath())) / 'debug_reports'
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / filename
     with path.open('x', encoding='utf-8', newline='\n') as output:
         output.write(report)
-    uri = autoclass('androidx.core.content.FileProvider').getUriForFile(
+    uri = context['provider'].getUriForFile(
         activity,
         str(activity.getPackageName()) + '.debugfiles',
         autoclass('java.io.File')(str(path)),

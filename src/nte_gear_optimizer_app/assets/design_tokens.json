@@ -99,6 +99,10 @@
     [
       "warning_text",
       "surface"
+    ],
+    [
+      "accent_ink",
+      "accent_text"
     ]
   ]
 }

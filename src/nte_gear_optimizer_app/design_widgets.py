@@ -40,7 +40,9 @@ class DesignButton(Button):
         pill = self.role == 'pill'
         text = self.role == 'text'
         fill = (
-            'accent' if primary else ('surface2' if self.state == 'down' else 'surface')
+            ('accent_text' if self.state == 'down' else 'accent')
+            if primary
+            else ('surface2' if self.state == 'down' else 'surface')
         )
         self.fill_color.rgba = (
             rgba(fill) if not text or self.state == 'down' else (0, 0, 0, 0)

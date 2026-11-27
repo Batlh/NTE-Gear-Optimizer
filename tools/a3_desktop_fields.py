@@ -477,6 +477,22 @@ class FieldProbe(ComparisonApp):
         yield 0.5
         assert self.input_hints[('level', 'ArkLevel')].text
         self.capture_view(out, 'ark_level_emoji_selected_ark')
+        # Footer primary button is outside the ScrollView preview: its own
+        # pressed canvas must visibly change on the actual OS down event.
+        normal_fill = tuple(self.next_button.fill_color.rgba)
+        native_button(self.next_button, None)
+        yield 0.15
+        native_button(self.next_button, True)
+        yield 0.08
+        assert self.next_button.state == 'down'
+        assert tuple(self.next_button.fill_color.rgba) != normal_fill
+        self.capture_view(out, 'primary_button_pressed')
+        native_button(self.next_button, False)
+        yield 0.6
+        assert self.vm.step == 1
+        self.click(self.back_button)
+        yield from self.wait_click(lambda: self.vm.step == 0, 'primary_feedback_return')
+        self.evidence.append({'primary_actual_pressed_fill': 'PASS'})
         self.debug.test_exception()
         self.debug.toggle_overlay()
         self.click(self.inputs[('level', 'ArkLevel')])

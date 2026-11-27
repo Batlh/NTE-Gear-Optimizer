@@ -151,7 +151,7 @@ class PerformanceProbe(ComparisonApp):
             self.debug.scroll_observer.metrics.finish()
             yield 0.3
             return
-        for enabled in [True, False, False, True]:
+        for enabled in [True, False, False, True] * 2:
             self.debug.scroll_observer.metrics.finish()
             self.debug.journal.enabled = enabled
             before_seq = self.debug.journal.seq

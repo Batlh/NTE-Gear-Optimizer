@@ -38,7 +38,7 @@ try:
     physics = s['performance_probe']['physics']
     assert physics and all(row['android_over_scroller'] for row in physics), physics
     blocks = []
-    for enabled in [True, False, False, True]:
+    for enabled in [True, False, False, True] * 2:
         ui.adb(
             'shell',
             'am',
@@ -53,7 +53,7 @@ try:
         s = ui.fresh()
         assert s['performance_probe']['logging'] is enabled
         before = s['performance_probe']['journal_seq']
-        count = len(s['performance_probe']['gestures'])
+        before_ids = {g['touch_id'] for g in s['performance_probe']['gestures']}
         for _ in range(2):
             ui.swipe(s['page_scroll'], s, reverse=False)
             time.sleep(1.2)
@@ -70,15 +70,20 @@ try:
                 before,
                 after,
             )
-        # The probe keeps the latest8 details, so take the latest4 gestures
-        # from each block rather than indexing a truncated history.
+        # A boundary gesture can produce no movement. Select by actual touch
+        # identity; taking the last4 could wrongly include a prior-mode gesture.
+        new_gestures = [
+            g
+            for g in s['performance_probe']['gestures']
+            if g['touch_id'] not in before_ids
+        ]
         blocks.append(
             {
                 'logging': enabled,
                 'seq_before': before,
                 'seq_after': after,
-                'gestures': s['performance_probe']['gestures'][-4:],
-                'observed_before_count': count,
+                'gestures': new_gestures,
+                'new_gesture_count': len(new_gestures),
             }
         )
     time.sleep(4)

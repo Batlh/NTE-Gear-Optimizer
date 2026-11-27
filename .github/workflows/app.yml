@@ -80,6 +80,7 @@ jobs:
           key: android-${{ matrix.abi }}-py3142-kivy232-9562d1b4f306-${{ hashFiles('build_recipes/**', 'requirements-android.txt', 'buildozer.spec') }}
       - run: python -m pip install -r requirements-android.txt
       - run: python tools/configure_android_ci.py
+      - run: python tools/check_android_manifest.py
       - run: python tools/stage_android.py
       - run: buildozer -v android debug
       - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
@@ -92,6 +93,7 @@ jobs:
             .buildozer/android/platform/build-${{ matrix.abi }}/packages
             .buildozer/android/platform/build-${{ matrix.abi }}/python-installs
           key: ${{ steps.android-cache.outputs.cache-primary-key }}
+      - run: python tools/record_android_dependencies.py
       - name: Sign fixed-key user test APK
         if: matrix.abi == 'arm64-v8a'
         env:
@@ -109,6 +111,8 @@ jobs:
             build/signature.json
             build/certificate_public.txt
             build/android_artifact.json
+            build/manifest_preflight
+            build/android_runtime_dependencies.txt
             .buildozer/android/platform/build-*/dists/*/build/outputs/logs/manifest-merger-debug-report.txt
   android-touch-emulator:
     needs: android-debug

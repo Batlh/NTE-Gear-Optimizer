@@ -12,7 +12,8 @@ icon.adaptive_background.filename = src/nte_gear_optimizer_app/assets/icons/kiwi
 orientation = portrait
 fullscreen = 0
 android.permissions =
-android.extra_manifest_application_arguments = android/debug_provider.xml
+p4a.extra_args = '--extra-manifest-application-xml=<provider xmlns:android="http://schemas.android.com/apk/res/android"     android:name="io.github.batlh.nte_gear_optimizer.DebugFileProvider"     android:authorities="io.github.batlh.nte_gear_optimizer.debugfiles"     android:exported="false"     android:grantUriPermissions="true">     <meta-data android:name="android.support.FILE_PROVIDER_PATHS"         android:resource="@xml/nte_debug_paths" /> </provider>'
+android.allow_backup = False
 android.add_resources = android/res/xml/nte_debug_paths.xml:xml/nte_debug_paths.xml
 android.add_src = android/java
 android.enable_androidx = True

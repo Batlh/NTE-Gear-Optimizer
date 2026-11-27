@@ -113,7 +113,9 @@ FIELD_LABELS.update(
     }
 )
 
-SESSION = 'Eingaben bleiben nur in dieser geöffneten Sitzung.'
+SESSION = (
+    'Eingaben werden beim Neustart geleert. Das lokale Debugprotokoll bleibt erhalten.'
+)
 
 GROUP_NAMES = {
     'scale': 'Skalierung',

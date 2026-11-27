@@ -50,7 +50,15 @@ for attempt in range(50):
             ],
             check=True,
         )
-        apk = next(target.rglob('*.apk'))
+        packages = list(target.rglob('*.apk'))
+        if not packages:
+            print(
+                'Artifact contains no APK; native build failure evidence only:',
+                item['id'],
+            )
+            continue
+        assert len(packages) == 1
+        apk = packages[0]
         with zipfile.ZipFile(apk) as z:
             with tarfile.open(
                 fileobj=io.BytesIO(z.read('assets/private.tar')), mode='r:*'

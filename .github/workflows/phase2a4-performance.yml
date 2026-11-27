@@ -24,12 +24,19 @@ jobs:
         with:
           python-version: '3.14.10'
       - run: python -m pip install -r requirements-app.txt
+      - name: Bounded prior NTE build evidence
+        if: matrix.stage == 'current'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/a4_fetch_prior_build_log.py
       - run: python tools/a4_run_windows_stage.py ${{ matrix.stage }}
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: always()
         with:
           name: a4-performance-windows-${{ matrix.stage }}-${{ github.run_attempt }}
-          path: ${{ matrix.stage == 'baseline' && 'build/a4_frozen_baseline/build/a4_performance_windows' || 'build/a4_performance_windows' }}
+          path: |
+            ${{ matrix.stage == 'baseline' && 'build/a4_frozen_baseline/build/a4_performance_windows' || 'build/a4_performance_windows' }}
+            build/a4_prior_build_diagnostic
   android:
     runs-on: ubuntu-24.04
     timeout-minutes: 65

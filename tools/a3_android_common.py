@@ -141,6 +141,9 @@ def record(name):
         manager, encoding='utf-8', newline='\n'
     )
     (out / (name + '_service.txt')).write_text(service, encoding='utf-8', newline='\n')
+    (out / (name + '_windows.txt')).write_text(
+        adb('shell', 'dumpsys', 'window', 'windows'), encoding='utf-8', newline='\n'
+    )
     ime = read_ime_state(manager)
     timeline.append(
         {

@@ -138,6 +138,20 @@ def install_probe(app):
         activity.getWindow().getDecorView().getWindowVisibleDisplayFrame(frame)
         state = {
             'window': list(Window.size),
+            'visual_window': {
+                'root_opacity': app.root.opacity,
+                'clearcolor': list(Window.clearcolor),
+                'native_decor_alpha': activity.getWindow().getDecorView().getAlpha(),
+                'native_window_alpha': activity.getWindow().getAttributes().alpha,
+                'window_children': [
+                    {
+                        'type': type(w).__name__,
+                        'opacity': w.opacity,
+                        'is_open': getattr(w, '_is_open', None),
+                    }
+                    for w in Window.children
+                ],
+            },
             'render_origin': list(
                 Window.render_context['modelview_mat'].transform_point(0, 0, 0)
             ),

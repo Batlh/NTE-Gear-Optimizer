@@ -31,15 +31,20 @@ assert s['inputs']['level:ArkLevel']['text'] == ''
 s, ime = ui.field('level:ArkLevel', '80.8', 'design_ark_level_hint_without_ark')
 assert s['inputs']['level:ArkLevel']['text'] == '80.8'
 assert s['input_hints']['level:ArkLevel'] and s['ark_id'] is None
-ui.adb('shell', 'input', 'keyevent', '66')
+ui.adb('shell', 'input', 'keyevent', '4')
 s = ui.fresh()
+assert not ui.read_ime_state(ui.adb('shell', 'dumpsys', 'input_method'))['shown']
 rect, s = ui.reach(
     lambda s: s['selectors']['Charakter']['rect'], lambda s: s['page_scroll']
 )
 ui.tap(rect, s)
+s = ui.fresh()
+assert s.get('modal', {}).get('title') == 'Charakter', s
 s, ime = ui.record('design_selector_current')
 assert s['modal']['title'] == 'Charakter'
-assert any(row['id'] is None for row in s['modal']['rows'])
+assert any(
+    row['id'] == s['selectors']['Charakter']['selected'] for row in s['modal']['rows']
+)
 (ui.out / 'visual_result.json').write_text(
     json.dumps(
         {

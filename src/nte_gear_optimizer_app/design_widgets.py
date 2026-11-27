@@ -1,6 +1,14 @@
 """Small canvas-only decorations; no overlay widgets intercept input."""
 
-from kivy.graphics import Color, Line, RoundedRectangle, InstructionGroup
+from kivy.graphics import (
+    Color,
+    Line,
+    RoundedRectangle,
+    InstructionGroup,
+    PushMatrix,
+    PopMatrix,
+    Translate,
+)
 from kivy.metrics import dp, sp
 from kivy.properties import StringProperty, NumericProperty
 from kivy.uix.button import Button
@@ -20,14 +28,15 @@ class DesignButton(Button):
         kwargs.setdefault('font_size', sp(16))
         super().__init__(**kwargs)
         with self.canvas.before:
+            PushMatrix()
+            self.decoration_position = Translate(*self.pos)
             self.fill_color = Color(*rgba('surface'))
-            self.fill = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(12)])
+            self.fill = RoundedRectangle(pos=(0, 0), size=self.size, radius=[dp(12)])
             self.line_color = Color(*rgba('border'))
-            self.edge = Line(
-                rounded_rectangle=(*self.pos, *self.size, dp(12)), width=dp(1)
-            )
+            self.edge = Line(rounded_rectangle=(0, 0, *self.size, dp(12)), width=dp(1))
+            PopMatrix()
         self.bind(
-            pos=self.style,
+            pos=self.move_decoration,
             size=self.style,
             state=self.style,
             role=self.style,
@@ -57,10 +66,17 @@ class DesignButton(Button):
         )
         self.disabled_color = rgba('muted')
         radius = dp(24 if pill else TOKENS['radii_dp']['button'])
-        self.fill.pos = self.pos
-        self.fill.size = self.size
-        self.fill.radius = [radius]
-        self.edge.rounded_rectangle = (*self.pos, *self.size, radius)
+        shape = (tuple(self.size), radius)
+        if shape != getattr(self, '_decoration_shape', None):
+            self._decoration_shape = shape
+            self.fill.size = self.size
+            self.fill.radius = [radius]
+            self.edge.rounded_rectangle = (0, 0, *self.size, radius)
+
+    def move_decoration(self, *_):
+        # Scrolling translates cached geometry, without tessellating rounded
+        # outlines or resetting colors for every position change.
+        self.decoration_position.x, self.decoration_position.y = self.pos
 
 
 class DesignTextInput(TextInput):
@@ -78,22 +94,31 @@ class DesignTextInput(TextInput):
         # Prepend decoration before Kivy's own cursor and foreground Color.
         # Appending after them tints text with the border and covers the cursor.
         decoration = InstructionGroup()
+        decoration.add(PushMatrix())
+        self.decoration_position = Translate(*self.pos)
+        decoration.add(self.decoration_position)
         decoration.add(Color(*rgba('background')))
-        self.fill = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(10)])
+        self.fill = RoundedRectangle(pos=(0, 0), size=self.size, radius=[dp(10)])
         decoration.add(self.fill)
         self.line_color = Color(*rgba('border'))
         decoration.add(self.line_color)
-        self.edge = Line(rounded_rectangle=(*self.pos, *self.size, dp(10)), width=dp(1))
+        self.edge = Line(rounded_rectangle=(0, 0, *self.size, dp(10)), width=dp(1))
         decoration.add(self.edge)
+        decoration.add(PopMatrix())
         self.canvas.before.insert(0, decoration)
-        self.bind(pos=self.style, size=self.style, focus=self.style)
+        self.bind(pos=self.move_decoration, size=self.style, focus=self.style)
         self.style()
 
     def style(self, *_):
-        self.fill.pos = self.pos
-        self.fill.size = self.size
         self.line_color.rgba = rgba('accent' if self.focus else 'border')
-        self.edge.rounded_rectangle = (*self.pos, *self.size, dp(10))
+        shape = tuple(self.size)
+        if shape != getattr(self, '_decoration_shape', None):
+            self._decoration_shape = shape
+            self.fill.size = self.size
+            self.edge.rounded_rectangle = (0, 0, *self.size, dp(10))
+
+    def move_decoration(self, *_):
+        self.decoration_position.x, self.decoration_position.y = self.pos
 
 
 class ResultCard(ReconcileLayout):

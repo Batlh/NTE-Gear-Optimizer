@@ -88,6 +88,8 @@ class DebugControl:
         self.last_chain = ''
         self.overlay_event = Clock.create_trigger(lambda dt: self.draw_overlay(), 0)
         self.native_state = None
+        self.skip_closed_keyboard_poll_on_scroll = True
+        self.keyboard_probe_skips = 0
         self.trace = InputTrace(app, self.observe)
         self.trace.attach_window(Window)
         install_uncaught_hooks(self.journal)
@@ -199,6 +201,16 @@ class DebugControl:
 
     @phase('keyboard_probe')
     def native_keyboard_state(self, dt):
+        from .keyboard_probe_policy import should_poll
+
+        gesture = self.scroll_observer.metrics.current
+        if self.skip_closed_keyboard_poll_on_scroll and not should_poll(
+            scrolling=gesture is not None and gesture.get('slop_crossed') is not None,
+            focused=any(w.focus for w in self.app.inputs.values()),
+            last_state=self.native_state,
+        ):
+            self.keyboard_probe_skips += 1
+            return
         try:
             from jnius import autoclass
 
@@ -315,6 +327,10 @@ class DebugControl:
         return {
             'timing_in_progress': self.performance.in_progress(),
             'scroll_summary': self.scroll_observer.summary(),
+            'keyboard_diagnostic_poll': {
+                'skipped_closed_during_scroll': self.keyboard_probe_skips,
+                'policy_enabled': self.skip_closed_keyboard_poll_on_scroll,
+            },
             'step': vm.step,
             'character_id': vm.character_id,
             'ark_id': vm.ark_id,

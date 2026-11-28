@@ -33,6 +33,14 @@ def install_probe(app):
     Window.bind(on_flip=flip_count)
 
     def performance_intent(intent):
+        if intent.hasExtra('nte_ci_keyboard_scroll_skip'):
+            skip = bool(intent.getBooleanExtra('nte_ci_keyboard_scroll_skip', True))
+            Clock.schedule_once(
+                lambda dt: setattr(
+                    app.debug, 'skip_closed_keyboard_poll_on_scroll', skip
+                ),
+                0,
+            )
         if intent.hasExtra('nte_ci_frame_profiling'):
             enabled_profile = bool(
                 intent.getBooleanExtra('nte_ci_frame_profiling', True)
@@ -198,6 +206,8 @@ def install_probe(app):
                 **perf_state,
                 'display': summary['display'],
                 'profiling_enabled': app.debug.frame_profiler.enabled,
+                'keyboard_probe_skips': app.debug.keyboard_probe_skips,
+                'keyboard_scroll_skip': app.debug.skip_closed_keyboard_poll_on_scroll,
                 'refresh_reads': summary['refresh_reads'],
                 'refresh_reads_during_gesture': summary['refresh_reads_during_gesture'],
                 'display_listener_status': summary['display_listener_status'],

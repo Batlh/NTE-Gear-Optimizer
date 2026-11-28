@@ -4,6 +4,7 @@ import json
 import subprocess
 import time
 import traceback
+import uuid
 
 import a3_android_common as ui
 
@@ -26,7 +27,7 @@ def compact_gesture(g):
     return result
 
 
-def physical_scroll(rect, s, reverse=False, fast=False):
+def physical_scroll(rect, s, reverse=False):
     x, y, w, h = ui.viewport(rect, s)
     start, end = (0.25, 0.80) if reverse else (0.80, 0.25)
     ui.adb(
@@ -37,8 +38,36 @@ def physical_scroll(rect, s, reverse=False, fast=False):
         str(round(y + h * start)),
         str(round(x + w / 2)),
         str(round(y + h * end)),
-        '180' if fast else '900',
+        '900',  # Short AVD injections can coalesce; use proven real gesture duration.
     )
+
+
+def fresh_idle_after_gesture():
+    # Request a NEW snapshot after OS input returns. Old pre-gesture snapshots
+    # are not idle evidence while serialization is deferred during inertia.
+    nonce = uuid.uuid4().hex
+    ui.adb(
+        'shell',
+        'am',
+        'start',
+        '--activity-single-top',
+        '-n',
+        activity,
+        '--es',
+        'nte_ci_idle_snapshot_nonce',
+        nonce,
+    )
+    deadline = time.monotonic() + 25
+    while time.monotonic() < deadline:
+        s = ui.fresh()
+        p = s['performance_probe']
+        if (
+            p.get('idle_snapshot_nonce') == nonce
+            and not p['scroll_active']
+            and p['active_contacts'] == 0
+        ):
+            return s
+    raise AssertionError('No new actual idle snapshot after native gesture')
 
 
 def list_to_last(s, expected_count, kind):
@@ -66,8 +95,8 @@ def list_to_last(s, expected_count, kind):
                 and not s['modal']['touch_active']
             ):
                 break
-        physical_scroll(modal['scroll'], s, fast=expected_count > 100)
-        s = ui.fresh()
+        physical_scroll(modal['scroll'], s)
+        s = fresh_idle_after_gesture()
         for g in s['performance_probe']['gestures']:
             if g.get('status') == 'MEASURED_GL_FLIP_PROXY' and str(
                 g.get('scroll', '')
@@ -186,7 +215,7 @@ try:
         old = {g['touch_id'] for g in s['performance_probe']['gestures']}
         for reverse in [False, True]:
             physical_scroll(s['page_scroll'], s, reverse=reverse)
-            s = ui.fresh()
+            s = fresh_idle_after_gesture()
         gestures = [
             compact_gesture(g)
             for g in s['performance_probe']['gestures']

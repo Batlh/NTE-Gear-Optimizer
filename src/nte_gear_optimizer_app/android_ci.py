@@ -31,7 +31,12 @@ def install_probe(app):
 
     # This command is unavailable in the delivered ARM64 package. Both the
     # emulator-only build flag and the explicit test launch above are required.
-    perf_state = {'logging': True, 'boundaries': [], 'flip_count': 0}
+    perf_state = {
+        'logging': True,
+        'boundaries': [],
+        'flip_count': 0,
+        'idle_snapshot_nonce': None,
+    }
     app.debug.pause_ci_snapshot_on_scroll = True
     app.debug.ci_snapshots_deferred = 0
 
@@ -41,6 +46,11 @@ def install_probe(app):
     Window.bind(on_flip=flip_count)
 
     def performance_intent(intent):
+        if intent.hasExtra('nte_ci_idle_snapshot_nonce'):
+            value = str(intent.getStringExtra('nte_ci_idle_snapshot_nonce'))
+            Clock.schedule_once(
+                lambda dt: perf_state.__setitem__('idle_snapshot_nonce', value), 0
+            )
         if intent.hasExtra('nte_ci_load_mode'):
             enabled = bool(intent.getBooleanExtra('nte_ci_load_mode', False))
             Clock.schedule_once(lambda dt: app.set_load_mode(enabled), 0)
@@ -281,6 +291,8 @@ def install_probe(app):
             summary = app.debug.scroll_observer.summary()
             state['performance_probe'] = {
                 **perf_state,
+                'scroll_active': app.debug.scroll_observer.metrics.current is not None,
+                'active_contacts': len(app.active_touches),
                 'display': summary['display'],
                 'profiling_enabled': app.debug.frame_profiler.enabled,
                 'gc_policy': app.debug.gc_policy.snapshot(),

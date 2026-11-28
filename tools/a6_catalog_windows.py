@@ -215,6 +215,16 @@ class CatalogProbe(Base):
             for reverse in [False, True]:
                 self.drag(reverse)
                 yield 2
+                deadline = namespace['time'].perf_counter() + 20
+                while (
+                    self.debug.scroll_observer.metrics.current is not None
+                    or self.active_touches
+                ):
+                    assert namespace['time'].perf_counter() < deadline, (
+                        'Natural page idle timeout'
+                    )
+                    yield 0.05
+                yield 0.1
             assert original == (self.vm.current, self.vm.item_x, self.vm.item_y)
             gestures = [
                 compact(g)
@@ -234,6 +244,13 @@ class CatalogProbe(Base):
             'failure': self.failure,
             'blocks': self.blocks,
             'list_progress': self.list_progress,
+            'page_scroll_state': {
+                'scroll_y': self.scroll.scroll_y,
+                'viewport_size': list(self.scroll.viewport_size),
+                'active_touch_count': len(self.active_touches),
+                'metric_active': self.debug.scroll_observer.metrics.current is not None,
+                'effect_velocity': self.scroll.effect_y.velocity,
+            },
             'last_selector_diagnostic': self.selector_diagnostic(self.diagnostic_scroll)
             if hasattr(self, 'diagnostic_scroll')
             else None,

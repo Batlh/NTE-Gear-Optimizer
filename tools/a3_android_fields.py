@@ -75,9 +75,11 @@ try:
             break
         except AssertionError:
             pass
-    from a5_android_touch_cases import run as h01_cases
+    from a3_h01_android_cases import run as h01_cases
 
-    h01_cases(ui)
+    from a3_h01_keyboard_barrier import NativeUI
+
+    h01_cases(NativeUI(ui))
     ui.record('design_step1_selection')
     for label, key in [
         ('Leistungstyp', 'DAMAGE'),

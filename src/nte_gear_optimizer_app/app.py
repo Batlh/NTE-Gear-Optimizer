@@ -447,29 +447,60 @@ class ComparisonApp(App):
             )
         Window.bind(on_motion=self.observe_touch_lifetime)
         header = BoxLayout(spacing=dp(12), size_hint_y=None, height=dp(64))
-        header.add_widget(
-            Image(
-                source=str(
-                    files('nte_gear_optimizer_app').joinpath(
-                        'assets/icons/kiwi_slice_transparent_512.png'
-                    )
-                ),
-                size_hint=(None, 1),
-                width=dp(36),
-            )
+        kiwi = Image(
+            source=str(
+                files('nte_gear_optimizer_app').joinpath(
+                    'assets/icons/kiwi_slice_transparent_512.png'
+                )
+            ),
+            size_hint=(None, None),
+            size=(dp(48), dp(48)),
+            pos_hint={'center_y': 0.5},
         )
-        titles = BoxLayout(orientation='vertical')
-        title = self.label(T.TITLE, 22, bold=True)
-        title.text_size = (None, None)
-        title.shorten = True
-        title.shorten_from = 'right'
-        title.height = dp(30)
-        title.bind(width=lambda w, v: setattr(w, 'text_size', (v, dp(30))))
-        titles.add_widget(title)
-        subtitle = self.label(T.SUBTITLE, 14, color='muted')
-        subtitle.height = dp(32)
-        titles.add_widget(subtitle)
+        header.add_widget(kiwi)
+        titles = BoxLayout(
+            orientation='vertical',
+            size_hint_y=None,
+            height=dp(52),
+            pos_hint={'center_y': 0.5},
+        )
+        # Header labels have fixed line boxes; the ordinary paragraph-label
+        # texture-height binding must not expand these two rows independently.
+        title = Label(
+            text=T.TITLE,
+            font_name='NTEText',
+            font_size=sp(22),
+            bold=True,
+            color=rgba('text'),
+            size_hint_y=None,
+            height=dp(30),
+            halign='left',
+            valign='middle',
+            shorten=True,
+            shorten_from='right',
+        )
+        subtitle = Label(
+            text=T.SUBTITLE,
+            font_name='NTEText',
+            font_size=sp(14),
+            color=rgba('muted'),
+            size_hint_y=None,
+            height=dp(22),
+            halign='left',
+            valign='middle',
+            shorten=True,
+        )
+        for label in (title, subtitle):
+            label.bind(size=lambda w, size: setattr(w, 'text_size', size))
+            titles.add_widget(label)
         header.add_widget(titles)
+        self.header_widgets = {
+            'header': header,
+            'kiwi': kiwi,
+            'titles': titles,
+            'title': title,
+            'subtitle': subtitle,
+        }
         self.root_box.add_widget(header)
         self.segments = StepSegments()
         self.root_box.add_widget(self.segments)

@@ -2,10 +2,10 @@ name: phase2a-app
 on:
   push:
     branches: [v029-phase2a]
-    paths-ignore: [tools/a3_*.py, tools/a4_*.py, tools/a5_*.py, .github/workflows/phase2a5-profile.yml, .github/workflows/phase2a5-controlled.yml, .github/workflows/phase2a3-cause.yml, .github/workflows/phase2a4-performance.yml]
+    paths-ignore: [tools/a3_*.py, tools/a4_*.py, tools/a5_*.py, .github/workflows/phase2a5-profile.yml, .github/workflows/phase2a5-controlled.yml, .github/workflows/phase2a5-keyboard-poll.yml, .github/workflows/phase2a3-cause.yml, .github/workflows/phase2a4-performance.yml]
   pull_request:
     branches: [v029-phase2a]
-    paths-ignore: [tools/a3_*.py, tools/a4_*.py, tools/a5_*.py, .github/workflows/phase2a5-profile.yml, .github/workflows/phase2a5-controlled.yml, .github/workflows/phase2a3-cause.yml, .github/workflows/phase2a4-performance.yml]
+    paths-ignore: [tools/a3_*.py, tools/a4_*.py, tools/a5_*.py, .github/workflows/phase2a5-profile.yml, .github/workflows/phase2a5-controlled.yml, .github/workflows/phase2a5-keyboard-poll.yml, .github/workflows/phase2a3-cause.yml, .github/workflows/phase2a4-performance.yml]
 permissions:
   contents: read
 jobs:

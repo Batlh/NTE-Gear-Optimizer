@@ -337,6 +337,11 @@ class FieldProbe(ComparisonApp):
         yield 0.1
 
     def scenarios(self):
+        yield 0.5
+        from a5_header_geometry import verify_header
+
+        self.evidence.append(verify_header(self))
+        self.capture_view(out, 'header_centered')
         if os.environ.get('NTE_A3_EXPORT_ONLY') == '1':
             yield from self.export_only()
             return

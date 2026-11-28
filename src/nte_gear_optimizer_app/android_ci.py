@@ -177,6 +177,7 @@ def install_probe(app):
             'softinput_mode': Window.softinput_mode,
             'motions': list(motions),
             'frame': [frame.left, frame.top, frame.right, frame.bottom],
+            'header': {name: rect(w) for name, w in app.header_widgets.items()},
             'step': app.vm.step,
             'scroll_y': app.scroll.scroll_y,
             'page_scroll': rect(app.scroll),

@@ -132,7 +132,7 @@ lassen. Keine gespeicherten Nutzerdaten vorhanden; Eingaben gelten je Sitzung.
 
 ## Ergänzung 2A-5
 
-- Signiertes Test-Update über 2A-4 installieren, ohne Deinstallation.
+- Signiertes Test-Update über den installierten 2A-5-Schritt-1-Stand (oder 2A-4) installieren, ohne Deinstallation.
 - Je zehn normale Tipps auf Weiter, „kein Bonus (0)“ und eine Auswahl:
   zählen, wie viele beim ersten Mal reagieren (z. B. 10/10).
   Auch 300–400 ms halten und den Finger dabei leicht zittern lassen.
@@ -140,5 +140,13 @@ lassen. Keine gespeicherten Nutzerdaten vorhanden; Eingaben gelten je Sitzung.
   keine Tastatur und keine Knopfaktion; Scrollen folgt dem Finger.
 - In den Schritten 1–4 scrollen, auf Aussetzer achten, dann den Kurzbericht
   exportieren. Er enthält je Berührung TAP/SWIPE, Strecke, Dauer und Slop.
-- Falls als Schritt-1-Zwischenstand geliefert, sind die zusätzliche
-  Bildzeit-Ursachenmessung und Kopfzeile aus Schritt 2/3 noch nicht umgesetzt.
+- Erste Scroll-Bewegung wird jetzt ab Überschreiten der Systemschwelle gemessen;
+  die Zeit ab erster Fingerbewegung bleibt separat im vollständigen Bericht.
+- In Schritt 1–4 bei 120 Hz wiederholt hinunter und zurück scrollen. Ziel bleibt
+  mindestens 115 fps Median und unter 2 % verpasste Bilder. Display-Abfragen
+  dürfen während einer Geste nicht vorkommen. Der vollständige Bericht enthält
+  gepufferte Bildzeiten sowie Widget-/Canvas-Zahlen je angezeigter Seite;
+  der Kurzbericht fasst sie zusammen. Frequenzwechsel bleiben als ungeprüft markiert.
+- Kiwi links und Titel/Untertitel daneben gemeinsam mittig prüfen.
+- Der Samsung-Schritt-1-Test vom 2026-11-28 ist bestanden; dieser neue Build
+  braucht nach dem Review die Scroll-/Update-Gegenprobe auf demselben Gerät.

@@ -30,6 +30,15 @@ for _ in range(40):
         pass
 else:
     raise AssertionError('Fresh visual test session unavailable')
+from a5_header_geometry import verify_rectangles
+
+header_result = verify_rectangles(s['header'])
+(ui.out / 'header_geometry.json').write_text(
+    json.dumps(header_result, indent=2) + '\n', encoding='utf-8', newline='\n'
+)
+(ui.out / 'header_centered.png').write_bytes(
+    __import__('subprocess').check_output(['adb', 'exec-out', 'screencap', '-p'])
+)
 assert s['inputs']['level:ArkLevel']['text'] == ''
 s, ime = ui.field('level:ArkLevel', '80.8', 'design_ark_level_hint_without_ark')
 (ui.out / 'compositor_ime_open.txt').write_text(

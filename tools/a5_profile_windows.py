@@ -154,6 +154,8 @@ class PerformanceProbe(ComparisonApp):
         threading.Thread(target=action, daemon=True).start()
 
     def gc_idle_diagnostic(self):
+        self.vm.set_override('ProfileType', 'DAMAGE')
+        self.vm.set_override('ScalingStat', 'ANG')
         self.vm.step = 0
         self.render()
         yield 1.2
@@ -195,6 +197,9 @@ class PerformanceProbe(ComparisonApp):
                     'gc': self.debug.gc_policy.snapshot(),
                 }
             )
+        assert (
+            self.debug.scroll_observer.metrics.summary()['measured_gesture_count'] >= 1
+        ), ('No actual content movement: not an idle proof', self.idle_diagnostics)
         assert not self.debug.gc_policy.pause_owned, self.idle_diagnostics
 
     def scenario(self):

@@ -81,7 +81,7 @@ class RuntimeHooks:
 
         def input_dispatch(kind, touch):
             p = self.p
-            if kind != 'update':
+            if kind != 'update' or not getattr(touch, 'is_touch', True):
                 return self.original_input(kind, touch)
             start = p.clock()
             try:

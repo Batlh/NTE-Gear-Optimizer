@@ -141,6 +141,8 @@ class ScrollObserver:
             self.refresh_active_rate()
 
     def motion(self, _, kind, touch):
+        if not getattr(touch, 'is_touch', True):
+            return False
         identifier = str(touch.uid)
         point = (touch.sx * self.window.width, touch.sy * self.window.height)
         if kind == 'begin':

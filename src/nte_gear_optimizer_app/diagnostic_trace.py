@@ -132,9 +132,11 @@ class InputTrace:
         )
 
         def motion(_, kind, touch):
-            if kind in ('begin', 'end'):
+            if kind in ('begin', 'end') and getattr(touch, 'is_touch', True):
                 self.emit(
                     'motion_' + kind,
+                    is_touch=getattr(touch, 'is_touch', True),
+                    type_id=getattr(touch, 'type_id', None),
                     touch_id=str(touch.uid),
                     device=str(getattr(touch, 'device', '')),
                     normalized=[touch.sx, touch.sy],

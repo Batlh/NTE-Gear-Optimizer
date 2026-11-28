@@ -55,6 +55,8 @@ class TouchIntentObserver:
         window.bind(on_motion=self.motion)
 
     def motion(self, _, kind, touch):
+        if not getattr(touch, 'is_touch', True):
+            return False
         key = str(touch.uid)
         x, y = touch.sx * self.window.width, touch.sy * self.window.height
         if kind == 'begin':

@@ -293,6 +293,8 @@ class ComparisonApp(App):
             self.keyboard_viewport.reset()
 
     def observe_touch_lifetime(self, window, kind, touch):
+        if not getattr(touch, 'is_touch', True):
+            return False
         if kind == 'begin':
             self.active_touches.add(touch.uid)
         elif kind == 'update' and self.keyboard_viewport:

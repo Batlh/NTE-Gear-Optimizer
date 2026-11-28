@@ -40,8 +40,25 @@ class PerformanceProbe(ComparisonApp):
         self.drag_error = None
         self.blocks = []
         self.flips = 0
+        self.first_motion_types = []
+        self.hover_uids_seen = set()
+        Window.bind(on_motion=self.record_motion_type)
         Window.bind(on_flip=self.flipped)
         Clock.schedule_once(self.advance, 1)
+
+    def record_motion_type(self, window, kind, touch):
+        # A small first-event proof, not one allocation per movement.
+        if len(self.first_motion_types) < 12 and kind in ('begin', 'end'):
+            self.first_motion_types.append(
+                {
+                    'uid': touch.uid,
+                    'event': kind,
+                    'is_touch': touch.is_touch,
+                    'type_id': touch.type_id,
+                }
+            )
+        if not touch.is_touch:
+            self.hover_uids_seen.add(touch.uid)
 
     def flipped(self, *args):
         self.flips += 1
@@ -176,7 +193,11 @@ class PerformanceProbe(ComparisonApp):
                 if gc_mode is not None:
                     self.debug.gc_policy.request_mode(gc_mode)
                     yield 0.8
-                    assert self.debug.gc_policy.mode == gc_mode
+                    assert self.debug.gc_policy.mode == gc_mode, {
+                        'active_touches': list(self.active_touches),
+                        'metric_current': self.debug.scroll_observer.metrics.current,
+                        'first_motion_types': self.first_motion_types,
+                    }
                     assert self.debug.gc_policy.requested is None
                 before = len(self.debug.scroll_observer.metrics.recent)
                 self.drag(False)
@@ -239,6 +260,9 @@ class PerformanceProbe(ComparisonApp):
                 ['git', 'rev-parse', 'HEAD'], text=True
             ).strip(),
             'platform': 'windows',
+            'first_motion_types': self.first_motion_types,
+            'hover_uid_count': len(self.hover_uids_seen),
+            'active_touches_at_end': list(self.active_touches),
             'effective_clock_maxfps': Clock._max_fps,
             'configured_maxfps': Config.getint('graphics', 'maxfps'),
             'frozen_baseline': os.environ.get('NTE_A4_FROZEN_BASELINE') == '1',

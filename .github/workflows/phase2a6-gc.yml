@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [v029-phase2a]
-    paths: [src/nte_gear_optimizer_app/**, tools/a6_*.py, .github/workflows/phase2a6-gc.yml]
+    paths: [src/nte_gear_optimizer_app/**, tools/a6_*.py, tools/a5_profile_windows.py, .github/workflows/phase2a6-gc.yml]
 permissions:
   contents: read
   actions: read

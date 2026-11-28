@@ -320,12 +320,42 @@ class PerformanceProbe(ComparisonApp):
             self.debug.gc_policy.request_mode('BOTH')
             yield 0.8
             memory_start_count = self.debug.gc_policy.deferred_gestures
+            self.memory_gesture_proofs = []
             for i in range(200):
+                metrics = self.debug.scroll_observer.metrics
+                previous_touch = (
+                    metrics.recent[-1]['touch_id'] if metrics.recent else None
+                )
+                previous_collects = self.debug.gc_policy.idle_collections
                 self.drag(bool(i % 2))
                 yield 2.3
+                deadline = time.perf_counter() + 15
+                # 2.3s is not an idle boundary: a real desktop fling can last
+                # longer. Do not force finish/collect or count continuous
+                # inertia as 200 independent GC-pause activations.
+                while metrics.current is not None or self.active_touches:
+                    assert time.perf_counter() < deadline, 'Natural idle timeout'
+                    yield 0.05
+                yield 0.1
+                row = metrics.recent[-1] if metrics.recent else None
+                assert row and row['touch_id'] != previous_touch, (
+                    'No new content gesture'
+                )
+                assert not self.debug.gc_policy.pause_owned
+                assert self.debug.gc_policy.api.isenabled()
+                assert self.debug.gc_policy.idle_collections > previous_collects
+                self.memory_gesture_proofs.append(
+                    {
+                        'gesture': i + 1,
+                        'touch_id': row['touch_id'],
+                        'drawn_frames': row['drawn_frames'],
+                        'distance_px': row['distance_px'],
+                        'gc_pause_cycles': self.debug.gc_policy.deferred_gestures,
+                        'idle_collections': self.debug.gc_policy.idle_collections,
+                        'automatic_gc_enabled': self.debug.gc_policy.api.isenabled(),
+                    }
+                )
                 if i in (19, 99, 199):
-                    self.debug.scroll_observer.metrics.finish()
-                    yield 0.3
                     from a6_memory import rss_bytes
 
                     self.memory_samples.append(
@@ -367,6 +397,7 @@ class PerformanceProbe(ComparisonApp):
             'scroll_summary': summary,
             'profiling_blocks': self.blocks,
             'memory_samples': getattr(self, 'memory_samples', []),
+            'memory_gesture_proofs': getattr(self, 'memory_gesture_proofs', []),
             'idle_diagnostics': getattr(self, 'idle_diagnostics', []),
             'idle_warmup': getattr(self, 'idle_warmup', None),
             'gc_policy': self.debug.gc_policy.snapshot(),

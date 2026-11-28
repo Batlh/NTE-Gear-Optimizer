@@ -118,10 +118,25 @@ class DebugControl:
 
         self.exception_handler = JournalExceptionHandler()
         ExceptionManager.add_handler(self.exception_handler)
-        Clock.schedule_interval(lambda dt: self.journal.flush_inputs(), 0.1)
+        self.defer_input_flush_on_scroll = (
+            False  # Trial: activate only after measured benefit.
+        )
+        self.input_flush_skips = 0
+        Clock.schedule_interval(self.flush_idle_inputs, 0.1)
         self.journal.emit('app_start', device=self.device())
         if platform == 'android':
             Clock.schedule_interval(self.native_keyboard_state, 0.1)
+
+    def flush_idle_inputs(self, dt=0):
+        gesture = self.scroll_observer.metrics.current
+        if (
+            self.defer_input_flush_on_scroll
+            and gesture is not None
+            and gesture.get('slop_crossed') is not None
+        ):
+            self.input_flush_skips += 1
+            return  # None keeps the recurring callback scheduled.
+        self.journal.flush_inputs()
 
     def device(self):
         values = {

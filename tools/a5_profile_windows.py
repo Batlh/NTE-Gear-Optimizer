@@ -188,7 +188,19 @@ class PerformanceProbe(ComparisonApp):
             )
             if os.environ.get('NTE_A6_PROFILE_COMPARE') == '1':
                 experiments = [(True, 'BASE'), (True, 'BASE')]
-            for enabled, gc_mode in experiments:
+            maintenance_order = (
+                [False, True, True, False, True, False, False, True]
+                if os.environ.get('NTE_A6_MAINTENANCE_COMPARE') == '1'
+                else None
+            )
+            if maintenance_order is not None:
+                experiments = [(True, 'BASE')] * len(maintenance_order)
+            for block_index, (enabled, gc_mode) in enumerate(experiments):
+                if maintenance_order is not None:
+                    self.debug.defer_input_flush_on_scroll = maintenance_order[
+                        block_index
+                    ]
+                before_flush_skips = self.debug.input_flush_skips
                 self.debug.scroll_observer.metrics.finish()
                 if hasattr(self.debug, 'frame_profiler'):
                     self.debug.frame_profiler.enabled = enabled
@@ -218,10 +230,19 @@ class PerformanceProbe(ComparisonApp):
                     for gesture in gestures:
                         if gesture.get('status') == 'MEASURED_GL_FLIP_PROXY':
                             check_attribution(gesture['frame_profile'])
+                if maintenance_order is not None:
+                    assert (
+                        (self.debug.input_flush_skips > before_flush_skips)
+                        if maintenance_order[block_index]
+                        else (self.debug.input_flush_skips == before_flush_skips)
+                    )
                 self.blocks.append(
                     {
                         'page': page,
                         'gc_mode': gc_mode,
+                        'defer_input_flush': self.debug.defer_input_flush_on_scroll,
+                        'input_flush_skips_delta': self.debug.input_flush_skips
+                        - before_flush_skips,
                         'profiling': enabled,
                         'gestures': deepcopy(gestures),
                     }

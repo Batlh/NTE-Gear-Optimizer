@@ -41,6 +41,15 @@ def install_probe(app):
     Window.bind(on_flip=flip_count)
 
     def performance_intent(intent):
+        if intent.hasExtra('nte_ci_defer_input_flush'):
+            enabled = bool(intent.getBooleanExtra('nte_ci_defer_input_flush', False))
+            Clock.schedule_once(
+                lambda dt, value=enabled: setattr(
+                    app.debug, 'defer_input_flush_on_scroll', value
+                ),
+                0,
+            )
+
         if intent.hasExtra('nte_ci_gc_mode'):
             mode = str(intent.getStringExtra('nte_ci_gc_mode'))
             Clock.schedule_once(
@@ -238,6 +247,8 @@ def install_probe(app):
                 'display': summary['display'],
                 'profiling_enabled': app.debug.frame_profiler.enabled,
                 'gc_policy': app.debug.gc_policy.snapshot(),
+                'input_flush_skips': app.debug.input_flush_skips,
+                'defer_input_flush': app.debug.defer_input_flush_on_scroll,
                 'keyboard_probe_skips': app.debug.keyboard_probe_skips,
                 'ci_snapshots_deferred': app.debug.ci_snapshots_deferred,
                 'ci_snapshot_pause': app.debug.pause_ci_snapshot_on_scroll,

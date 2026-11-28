@@ -141,3 +141,27 @@ def test_scroll_metrics_reuse_coordinate_storage_and_keep_threshold():
     assert storage == [0, 8.01]
     m.move('foreign', 99, 99)
     assert storage == [0, 8.01]
+
+
+def test_input_flush_defers_only_scroll_and_resumes_without_losing_pending_value():
+    flush = method('debug_control.py', 'DebugControl', 'flush_idle_inputs')
+    calls = []
+    metrics = SimpleNamespace(current=None)
+    debug = SimpleNamespace(
+        scroll_observer=SimpleNamespace(metrics=metrics),
+        defer_input_flush_on_scroll=True,
+        input_flush_skips=0,
+        journal=SimpleNamespace(flush_inputs=lambda: calls.append('flushed')),
+    )
+    assert flush(debug) is None and calls == ['flushed']
+    metrics.current = {'slop_crossed': None}
+    assert flush(debug) is None and len(calls) == 2
+    metrics.current = {'slop_crossed': 0.0, 'released': True}
+    for _ in range(30):
+        assert flush(debug) is None
+    assert debug.input_flush_skips == 30 and len(calls) == 2
+    metrics.current = None
+    assert flush(debug) is None and len(calls) == 3
+    metrics.current = {'slop_crossed': 1.0}
+    debug.defer_input_flush_on_scroll = False
+    assert flush(debug) is None and len(calls) == 4

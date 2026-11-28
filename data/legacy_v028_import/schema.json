@@ -1,0 +1,23 @@
+{
+  "SchemaVersion": 1,
+  "DataStatus": "V028_UNVERIFIED_FOR_15",
+  "RequiredTopLevel": [
+    "Arks",
+    "Sets",
+    "ModuleEndpoints",
+    "ModuleLevelSeries",
+    "ModuleInGameSamples",
+    "CartridgeLevels",
+    "ArkExactPoints",
+    "ArkObservedPoints",
+    "ArkEffectReference",
+    "ResearchSources",
+    "CharacterArkTypes",
+    "Gaps"
+  ],
+  "EntityIDs": "Existing canonical IDs only; never derive from mutable display names.",
+  "Records": "Immutable source SHA256 plus source row; original status and observation context retained.",
+  "ReferenceUse": "No gameplay calculation, interpolation, automatic level/stage winner, or promotion of workbook cached formulas.",
+  "Precedence": "When later merging into display catalogs, patch1.5 records win; original patch1.5 package remains byte-identical.",
+  "ArkTypeFilter": "Optional future sourced Character→ArkType table; no row means no filtering or gate."
+}

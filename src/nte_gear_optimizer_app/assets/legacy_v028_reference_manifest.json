@@ -1,0 +1,20 @@
+{
+  "SchemaVersion": 1,
+  "SHA256": "060A077223F86F8D6D18C821A2BBEA052F95E7E8CC71A3A8B137F5E973D08115",
+  "DataStatus": "V028_UNVERIFIED_FOR_15",
+  "SourceArchiveSHA256": "F85BFC95C13259DA2962259B454E5396FFDB165128A632967D32FC94BB60EBA3",
+  "FrozenWorkbookSHA256": "1D07965C6EC3C9652AAD8750B84EECD01E9EA168A8DF37C1E5A3386FDA2799AE",
+  "Counts": {
+    "Arks": 49,
+    "Sets": 12,
+    "ArkExactPoints": 105,
+    "ArkObservedPoints": 27,
+    "CartridgeLevels": 63,
+    "ModuleEndpoints": 18,
+    "ModuleLevelSeries": 18,
+    "ExplicitModuleArrayValues": 378,
+    "ModuleInGameSamples": 1,
+    "GuideRankingMatches": 52,
+    "GuideRankingGaps": 2
+  }
+}

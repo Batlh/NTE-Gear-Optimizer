@@ -52,8 +52,7 @@ def display_refresh(platform):
 
 
 def active_display_refresh(platform):
-    # Supported-mode enumeration is needed once for the frame policy. During
-    # a gesture only read the active rate, at most4times per second.
+    # Called only after a display/window notification outside active gestures.
     if platform == 'android':
         from jnius import autoclass
 
@@ -63,9 +62,15 @@ def active_display_refresh(platform):
 
 
 class ScrollObserver:
-    def __init__(self, window, clock, platform, emit):
+    def __init__(self, window, clock, platform, emit, touch_slop=8):
         self.window, self.clock = window, clock
         self.platform = platform
+        self.pending_refresh = False
+        self.refresh_reads = 1
+        self.refresh_reads_during_gesture = 0
+        self.subscription = None
+        self.listener_status = 'NOT_ANDROID'
+        self.touch_slop = touch_slop
         self.last_refresh_read = time.perf_counter()
         self.last_refresh_read_ms = None
         try:
@@ -76,13 +81,38 @@ class ScrollObserver:
                 'source': 'UNVERIFIED_READ_FAILED',
                 'reason': type(error).__name__,
             }
-        self.metrics = ScrollMetrics(emit, self.display['active_hz'])
+        self.metrics = ScrollMetrics(
+            emit, self.display['active_hz'], touch_slop=touch_slop
+        )
         self.bound = weakref.WeakSet()
         self.labels = weakref.WeakKeyDictionary()
         window.bind(on_motion=self.motion, on_flip=self.metrics.frame)
         self.event = clock.schedule_interval(self.tick, 0.05)
+        window.bind(size=self.queue_refresh)
+        if platform == 'android':
+            try:
+                from .display_events import subscribe
+
+                self.subscription = subscribe(self.native_notification)
+                self.listener_status = 'REGISTERED'
+            except Exception as error:
+                self.listener_status = 'UNVERIFIED_' + type(error).__name__
+
+    def native_notification(self, reason):
+        # Android callback thread: schedule only. Never call JNI display getters.
+        self.clock.schedule_once(lambda dt: self.queue_refresh(reason), 0)
+
+    def queue_refresh(self, *args):
+        self.pending_refresh = True
+        if self.metrics.current is not None:
+            self.metrics.invalidate_refresh('DISPLAY_OR_WINDOW_CHANGE_DEFERRED')
 
     def refresh_active_rate(self):
+        if self.metrics.current is not None:
+            self.pending_refresh = True
+            return
+        self.pending_refresh = False
+        self.refresh_reads += 1
         started = time.perf_counter()
         try:
             hz = active_display_refresh(self.platform)
@@ -103,10 +133,9 @@ class ScrollObserver:
 
     def tick(self, dt=0):
         self.metrics.settle(dt)
-        if (
-            self.metrics.current is not None
-            and time.perf_counter() - self.last_refresh_read >= 0.25
-        ):
+        if self.metrics.profile is not None and self.metrics.current is None:
+            self.metrics.profile.idle_inventory()
+        if self.pending_refresh and self.metrics.current is None:
             self.refresh_active_rate()
 
     def motion(self, _, kind, touch):
@@ -114,7 +143,6 @@ class ScrollObserver:
         point = (touch.sx * self.window.width, touch.sy * self.window.height)
         if kind == 'begin':
             self.metrics.finish()
-            self.refresh_active_rate()
             self.metrics.begin(identifier, *point)
         elif kind == 'update':
             self.metrics.move(identifier, *point)
@@ -153,11 +181,22 @@ class ScrollObserver:
             'display': self.display,
             'physics': physics,
             'active_refresh_read_ms': self.last_refresh_read_ms,
-            'active_refresh_sampling': 'At gesture begin and at most every250ms during a gesture; no native reads at rest.',
+            'active_refresh_sampling': 'Startup; display-listener/window-change notifications; deferred until gesture/inertia ends. No polling or getters during gestures.',
+            'display_listener_status': self.listener_status,
+            'refresh_reads': self.refresh_reads,
+            'refresh_reads_during_gesture': self.refresh_reads_during_gesture,
+            'refresh_pending': self.pending_refresh,
             **self.metrics.summary(),
         }
 
     def stop(self):
         self.metrics.finish()
         self.event.cancel()
-        self.window.unbind(on_motion=self.motion, on_flip=self.metrics.frame)
+        self.window.unbind(
+            on_motion=self.motion, on_flip=self.metrics.frame, size=self.queue_refresh
+        )
+        if self.subscription is not None:
+            from .display_events import unsubscribe
+
+            unsubscribe(self.subscription)
+            self.subscription = None

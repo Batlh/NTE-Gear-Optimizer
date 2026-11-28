@@ -20,6 +20,7 @@ from .debug_journal import (
     private_log_directory,
 )
 from .background_journal import BackgroundJournal
+from .frame_profile import FrameProfiler, phase
 from .design_tokens import rgba
 from .debug_export import (
     android_download,
@@ -47,12 +48,26 @@ class DebugControl:
         Window.bind(on_flip=self.performance.frame)
         from .scroll_observer import ScrollObserver
 
+        from .touch_slop import touch_slop_policy
+
         self.scroll_observer = ScrollObserver(
-            Window, Clock, platform, self.journal.emit
+            Window,
+            Clock,
+            platform,
+            self.journal.emit,
+            touch_slop=touch_slop_policy()['window_px'],
         )
         from .touch_slop import TouchIntentObserver
 
         self.touch_intent = TouchIntentObserver(Window, self.journal.emit)
+        self.frame_profiler = FrameProfiler(
+            Window,
+            lambda: (
+                self.scroll_observer.metrics.current is not None
+                and self.scroll_observer.metrics.current.get('slop_crossed') is not None
+            ),
+        )
+        self.scroll_observer.metrics.profile = self.frame_profiler
         self.metadata = build_metadata()
         self.bound = weakref.WeakSet()
         self.full_report = False
@@ -182,6 +197,7 @@ class DebugControl:
         if event == 'motion_end':
             Clock.schedule_once(lambda dt, key=identifier: self.finish_route(key), 0)
 
+    @phase('keyboard_probe')
     def native_keyboard_state(self, dt):
         try:
             from jnius import autoclass
@@ -281,6 +297,7 @@ class DebugControl:
 
             widget.bind(text=changed)
         scroll = self.app.scroll
+        self.frame_profiler.queue_inventory(self.app.root_box, self.app.vm.step + 1)
         self.scroll_observer.attach(scroll, 'step' + str(self.app.vm.step + 1))
 
     def state(self):
@@ -489,6 +506,7 @@ class DebugControl:
         self.stopped = True
         self.export_pool.shutdown(wait=True, cancel_futures=True)
         self.scroll_observer.stop()
+        self.frame_profiler.stop()
         self.touch_intent.stop()
         Window.unbind(on_flip=self.performance.frame)
         self.journal.flush_inputs(force=True)

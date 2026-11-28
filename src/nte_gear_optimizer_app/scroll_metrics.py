@@ -38,9 +38,11 @@ def frame_statistics(timestamps, refresh_hz):
 
 
 class ScrollMetrics:
-    def __init__(self, emit, refresh_hz=None, clock=time.perf_counter):
+    def __init__(self, emit, refresh_hz=None, clock=time.perf_counter, touch_slop=0):
         self.emit, self.refresh_hz, self.clock = emit, refresh_hz, clock
         self.current = None
+        self.touch_slop = touch_slop
+        self.profile = None
         self.recent = deque(maxlen=100)
 
     def begin(self, identifier, x, y):
@@ -55,6 +57,7 @@ class ScrollMetrics:
             'last_touch': (x, y),
             'released': False,
             'first_drag': None,
+            'slop_crossed': None,
             'first_visible': None,
             'last_change': None,
             'pending': False,
@@ -63,6 +66,14 @@ class ScrollMetrics:
             'label': None,
             'last_position': None,
         }
+
+        if self.profile is not None:
+            self.profile.begin()
+
+    def invalidate_refresh(self, reason):
+        if self.current is not None:
+            self.current['refresh_changed'] = True
+            self.current['refresh_uncertain_reason'] = reason
 
     def set_refresh(self, hz):
         previous = self.refresh_hz
@@ -87,6 +98,11 @@ class ScrollMetrics:
             return
         if (x, y) != g['origin'] and g['first_drag'] is None:
             g['first_drag'] = self.clock()
+        if (
+            g['slop_crossed'] is None
+            and math.hypot(x - g['origin'][0], y - g['origin'][1]) > self.touch_slop
+        ):
+            g['slop_crossed'] = self.clock()
         g['last_touch'] = (x, y)
 
     def end(self, identifier):
@@ -96,7 +112,7 @@ class ScrollMetrics:
 
     def changed(self, label, position):
         g = self.current
-        if g is None or g['first_drag'] is None:
+        if g is None or g['slop_crossed'] is None:
             return
         if g['label'] is not None and g['label'] != label:
             return
@@ -126,6 +142,7 @@ class ScrollMetrics:
 
     def finish(self):
         g, self.current = self.current, None
+        profile = self.profile.finish() if self.profile is not None else None
         if g is None or g['first_drag'] is None or not g['frames']:
             return
         row = frame_statistics(list(g['frames']), g['refresh_hz_at_start'])
@@ -141,10 +158,20 @@ class ScrollMetrics:
             scroll=g['label'],
             distance_px=round(g['distance'], 3),
             gesture_duration_ms=round(1000 * (self.clock() - g['start']), 3),
-            first_drag_to_visible_movement_ms=round(
+            first_movement_startpoint='SYSTEM_TOUCH_SLOP_CROSSED',
+            touch_slop_px=self.touch_slop,
+            first_motion_to_visible_movement_ms=round(
                 1000 * (g['first_visible'] - g['first_drag']), 3
             ),
+            first_drag_to_visible_movement_ms=round(
+                1000 * (g['first_visible'] - g['slop_crossed']), 3
+            ),
         )
+        if profile is not None:
+            row['frame_profile'] = profile
+            # Raw in-memory frames for the last five gestures only; summaries remain.
+            for old in list(self.recent)[:-4]:
+                old.get('frame_profile', {}).pop('rows', None)
         self.recent.append(row)
         try:
             self.emit('scroll_gesture_metrics', **row)

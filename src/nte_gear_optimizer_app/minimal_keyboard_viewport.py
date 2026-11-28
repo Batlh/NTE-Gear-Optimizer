@@ -3,6 +3,9 @@
 import math
 
 
+from .frame_profile import phase
+
+
 def required_lift(
     field_bottom, ime_top, gap, logical_scale, overflow, scroll_y, padding
 ):
@@ -88,6 +91,7 @@ class MinimalKeyboardViewport:
     def focused(self):
         return next((w for w in self.body_fields() if getattr(w, 'focus', False)), None)
 
+    @phase('viewport')
     def update(self, dt=0):
         try:
             widget = self.focused()

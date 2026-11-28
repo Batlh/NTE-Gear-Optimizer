@@ -44,6 +44,23 @@ def brief_result(value):
 
 def brief_event(row):
     row = deepcopy(row)
+    if 'frame_profile' in row:
+        profile = row['frame_profile']
+        row['frame_profile'] = {
+            key: profile.get(key)
+            for key in ['enabled', 'hook_status', 'frames_observed', 'raw_truncated']
+        }
+        row['frame_profile']['statistics'] = {
+            key: {name: stats.get(name) for name in ['median', 'p95', 'max']}
+            for key, stats in profile.get('statistics', {}).items()
+            if stats is not None
+            and key.endswith('_ms')
+            and key not in ['elapsed_ms', 'interval_ms']
+        }
+        row['frame_profile']['inventory'] = {
+            key: profile.get('inventory', {}).get(key)
+            for key in ['widgets', 'canvas_instructions', 'page']
+        }
     row.pop('utc', None)  # monotone ms + session + sequence remain on every row
     if 'result' in row:
         row['result'] = brief_result(row['result'])
@@ -119,7 +136,7 @@ def render_short_report(payload):
         value['state']['result'] = brief_result(value['state']['result'])
     scroll = value['state'].get('scroll_summary')
     if isinstance(scroll, dict) and isinstance(scroll.get('gestures'), list):
-        scroll['gestures'] = scroll['gestures'][-10:]
+        scroll['gestures'] = [brief_event(g) for g in scroll['gestures'][-10:]]
         scroll['detail_scope'] = (
             'Latest10gesture details; aggregate count/median from retained100.'
         )

@@ -33,6 +33,16 @@ def install_probe(app):
     Window.bind(on_flip=flip_count)
 
     def performance_intent(intent):
+        if intent.hasExtra('nte_ci_frame_profiling'):
+            enabled_profile = bool(
+                intent.getBooleanExtra('nte_ci_frame_profiling', True)
+            )
+            Clock.schedule_once(
+                lambda dt: setattr(
+                    app.debug.frame_profiler, 'enabled', enabled_profile
+                ),
+                0,
+            )
         if not intent.hasExtra('nte_ci_perf_logging'):
             return
         enabled = bool(intent.getBooleanExtra('nte_ci_perf_logging', True))
@@ -187,8 +197,22 @@ def install_probe(app):
             state['performance_probe'] = {
                 **perf_state,
                 'display': summary['display'],
+                'profiling_enabled': app.debug.frame_profiler.enabled,
+                'refresh_reads': summary['refresh_reads'],
+                'refresh_reads_during_gesture': summary['refresh_reads_during_gesture'],
+                'display_listener_status': summary['display_listener_status'],
                 'physics': summary['physics'],
-                'gestures': summary['gestures'][-8:],
+                'gestures': [
+                    {
+                        **g,
+                        'frame_profile': {
+                            k: v
+                            for k, v in g.get('frame_profile', {}).items()
+                            if k != 'rows'
+                        },
+                    }
+                    for g in summary['gestures'][-8:]
+                ],
                 'journal_seq': app.debug.journal.seq,
                 'body_padding': list(app.body.padding),
                 'page_id': id(app.body),

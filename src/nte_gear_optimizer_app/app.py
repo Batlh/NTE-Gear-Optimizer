@@ -44,6 +44,10 @@ from .viewmodel import ComparisonViewModel, numeric_hint, ark_level_hint
 from . import texts as T
 from .performance import timed
 
+from .frame_profile import install_layout_hook, phase
+
+install_layout_hook()
+
 FONT = str(files('nte_gear_optimizer_app').joinpath('assets/DejaVuSans.ttf'))
 BOLD_FONT = str(files('nte_gear_optimizer_app').joinpath('assets/DejaVuSans-Bold.ttf'))
 LabelBase.register(name='NTEText', fn_regular=FONT, fn_bold=BOLD_FONT)
@@ -599,6 +603,7 @@ class ComparisonApp(App):
         self.update_white_visibility()
 
     @timed('render', frame=True)
+    @phase('canvas_build')
     def render(self):
         from .reconcile_layout import ReconcileLayout
 

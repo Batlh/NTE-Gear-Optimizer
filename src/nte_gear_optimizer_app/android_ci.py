@@ -233,6 +233,14 @@ def install_probe(app):
                 'touch_slop_policy': app.debug.touch_intent.policy,
                 'touch_intents': app.debug.touch_intent.recent,
                 'input_ids': {':'.join(k): id(w) for k, w in app.inputs.items()},
+                'viewport_native_read_counters': {
+                    key: getattr(app.keyboard_viewport, key, None)
+                    for key in [
+                        'native_reads',
+                        'native_reads_while_touch',
+                        'deferred_native_reads',
+                    ]
+                },
                 'viewport_measurement': getattr(
                     app.keyboard_viewport, 'last_measurement', None
                 )

@@ -151,3 +151,45 @@ def test_actual_native_white_field_snapshot_needs_only119_75px():
     # the OLD focused field happens to be above the keyboard.
     assert minimum_bottom_padding(1027, 1048, 21, 1, 4119.75, 0, 119.75, 809) == 119.75
     assert minimum_bottom_padding(900, 1048, 21, 1, 4000, 0, 119.75, 809) == 0
+
+
+def test_native_geometry_is_deferred_until_touch_release():
+    body = SimpleNamespace(height=300, padding=[0, 0, 0, 0], parent=None)
+    widget = SimpleNamespace(
+        focus=True, parent=body, pos=(0, 200), to_window=lambda *p: p
+    )
+    app = SimpleNamespace(
+        body=body,
+        inputs={('y', 'ScaleDirect'): widget},
+        scroll=SimpleNamespace(height=300, scroll_y=0),
+        active_touches={'finger'},
+    )
+    window = SimpleNamespace(
+        height=500,
+        render_context={'modelview_mat': SimpleNamespace(transform_point=lambda *p: p)},
+    )
+    calls = []
+
+    def read():
+        calls.append(True)
+        return {
+            'visible': True,
+            'native_height': 300,
+            'visible_bottom': 200,
+            'surface_rect': [0, 0, 100, 500],
+        }
+
+    view = MinimalKeyboardViewport(
+        app,
+        window,
+        SimpleNamespace(schedule_interval=lambda *a: None),
+        read,
+        lambda *a, **k: None,
+    )
+    view.update()
+    assert calls == [] and body.padding == [0, 0, 0, 0]
+    app.active_touches.clear()
+    view.update()
+    assert calls == [True] and body.padding[3] == 108
+    assert view.target is widget and app.inputs[('y', 'ScaleDirect')] is widget
+    assert view.native_reads_while_touch == 0 and view.deferred_native_reads == 1

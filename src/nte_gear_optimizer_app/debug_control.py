@@ -327,6 +327,14 @@ class DebugControl:
         return {
             'timing_in_progress': self.performance.in_progress(),
             'scroll_summary': self.scroll_observer.summary(),
+            'viewport_native_read_counters': {
+                key: getattr(self.app.keyboard_viewport, key, None)
+                for key in [
+                    'native_reads',
+                    'native_reads_while_touch',
+                    'deferred_native_reads',
+                ]
+            },
             'keyboard_diagnostic_poll': {
                 'skipped_closed_during_scroll': self.keyboard_probe_skips,
                 'policy_enabled': self.skip_closed_keyboard_poll_on_scroll,

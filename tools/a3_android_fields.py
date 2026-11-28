@@ -303,6 +303,10 @@ try:
     session = payload['events'][-1]['session']
     current = [e['seq'] for e in events if e['session'] == session]
     assert current == sorted(set(current)), current
+    viewport_counts = payload['state']['viewport_native_read_counters']
+    assert viewport_counts['native_reads'] > 0
+    assert viewport_counts['native_reads_while_touch'] == 0
+    assert viewport_counts['deferred_native_reads'] > 0
     assert payload['device']['commit'] == probe['metadata']['commit']
     assert abs(payload['device']['density'] - native_density) < 0.01
     assert payload['device']['version_code'] > 1004001

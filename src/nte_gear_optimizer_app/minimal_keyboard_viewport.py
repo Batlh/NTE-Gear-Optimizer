@@ -50,6 +50,9 @@ class MinimalKeyboardViewport:
         self.failed = False
         self.padded = []
         self.last_measurement = None
+        self.native_reads = 0
+        self.native_reads_while_touch = 0
+        self.deferred_native_reads = 0
         self.event = clock.schedule_interval(self.update, 0.1)
 
     def reset(self):
@@ -98,6 +101,15 @@ class MinimalKeyboardViewport:
             if widget is None:
                 self.reset()
                 return
+            # Correction already waits for touch-up. Avoid the JNI traversal
+            # on the path that cannot adjust anything while the finger is down.
+            if getattr(self.app, 'active_touches', None):
+                self.deferred_native_reads += 1
+                return
+            self.native_reads += 1
+            self.native_reads_while_touch += int(
+                bool(getattr(self.app, 'active_touches', None))
+            )
             state = self.read_native()
             if not state['visible']:
                 self.reset()

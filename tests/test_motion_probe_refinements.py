@@ -3,7 +3,7 @@
 import ast
 from copy import deepcopy
 from pathlib import Path
-import subprocess
+import hashlib
 from types import SimpleNamespace
 
 import pytest
@@ -80,9 +80,13 @@ def button_class(source):
 
 
 def baseline_source():
-    return subprocess.check_output(
-        ['git', 'show', BASE + ':' + BUTTON_PATH], cwd=ROOT
-    ).decode('utf-8')
+    # Exact historical source from BASE:BUTTON_PATH. No Git/network needed
+    # in shallow CI checkouts or a standalone source snapshot.
+    payload = (ROOT / 'tests/fixtures/design_widgets_b0_source.py.txt').read_bytes()
+    assert hashlib.sha256(payload).hexdigest().upper() == (
+        'B4F342852444D535F352859852DA8E1965BA729B66ACDF7C6EE9F2351E630AC2'
+    )
+    return payload.decode('utf-8')
 
 
 def current_source():

@@ -1,0 +1,6 @@
+Historical comparison source; project-owned MIT code.
+Origin commit: b0a2f75de87f3963fc73f03d25bff4eee1181fd1
+Origin path: src/nte_gear_optimizer_app/design_widgets.py
+Fixture: design_widgets_b0_source.py.txt
+SHA-256: B4F342852444D535F352859852DA8E1965BA729B66ACDF7C6EE9F2351E630AC2
+Byte-identical source, parsed only for the original button methods; never imported as a runtime package.

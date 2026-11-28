@@ -21,6 +21,7 @@ REFERENCE_GROUPS = (
     'CanonicalRegistry',
     'ArkEffectReference',
     'SetEffects',
+    'ArkMixingContract',
 )
 ARK_TYPES = frozenset(('Gas', 'Liquid', 'Solid', 'Plasma', 'Synthesis'))
 
@@ -162,8 +163,42 @@ def validate_reference(doc):
             len(values) == int(original['LevelEnd']) - int(original['LevelStart']) + 1,
             'Incomplete explicit level array',
         )
+    conflicts = doc.get('ArkConflictObservations')
+    require(isinstance(conflicts, list), 'Missing raw conflict records')
+    require(
+        all(
+            isinstance(r, dict) and isinstance(r.get('Original'), dict)
+            for r in conflicts
+        ),
+        'Malformed conflict observation',
+    )
+    unique([r['Original'] for r in conflicts], 'EffectObservationID')
+    for row in conflicts:
+        require(
+            row.get('DataStatus') == STATUS
+            and row.get('SourceSHA256') == SOURCE_WORKBOOK,
+            'Wrong conflict provenance',
+        )
+        require(
+            row.get('SourceRole') == 'RAW_CONFLICT_OBSERVATION_NONOPERATIVE',
+            'Unsafe conflict role',
+        )
+        require(
+            isinstance(row.get('SourceRetrievedAt'), dict),
+            'Missing conflict retrieval status',
+        )
+        require(
+            row['Original'].get('ScoringEnabled') == '0'
+            and row['Original'].get('IncludeInStaticStats') == '0',
+            'Conflict may not become an engine input',
+        )
+        require(row['Original'].get('ArkID') in ark_ids, 'Unknown conflict Ark')
     counts = doc.get('Counts')
     require(isinstance(counts, dict), 'Missing counts')
+    require(
+        counts.get('ArkMixingContractRows') == len(doc['ArkMixingContract']),
+        'Mixing contract count mismatch',
+    )
     for key in (
         'Arks',
         'Sets',

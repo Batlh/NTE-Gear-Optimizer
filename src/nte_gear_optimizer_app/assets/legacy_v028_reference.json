@@ -71,6 +71,13 @@
       "Role": "OPERATIVE_SOURCE_DATA",
       "OriginalStatus": "OPERATIVE_R4_FINAL",
       "Rows": 27
+    },
+    {
+      "SourceRelativePath": "ark_mixing_contract_v028_R4_N3D2_REV_1.tsv",
+      "SHA256": "A9431F563BA37EBA6185866EFA7087DAAE497CE323C07212E8C2F5201BF42C49",
+      "Role": "N3D2_CURRENT_DATA",
+      "OriginalStatus": "OPERATIVE_CURRENT_N3D2",
+      "Rows": 6
     }
   ],
   "Arks": [
@@ -16426,7 +16433,17 @@
         "ScoringEnabled": "0",
         "IncludeInStaticStats": "0",
         "Notes": "Raw conflict observation retained; effect is excluded in v0.271."
-      }
+      },
+      "SourceRetrievedAt": {
+        "Value": "2026-09-04",
+        "Kind": "tblDataSources.RetrievedAt",
+        "Status": "DECLARED_SOURCE_DATE_1900_SERIAL",
+        "SourceSheet": "Data_Sources",
+        "SourceRow": 4,
+        "OriginalExcelSerial": "46269"
+      },
+      "SourceURL": "https://www.prydwen.gg/neverness-to-everness/arcs",
+      "SourceRole": "RAW_CONFLICT_OBSERVATION_NONOPERATIVE"
     },
     {
       "DataStatus": "V028_UNVERIFIED_FOR_15",
@@ -16446,7 +16463,17 @@
         "ScoringEnabled": "0",
         "IncludeInStaticStats": "0",
         "Notes": "Raw conflict observation retained; effect is excluded in v0.271."
-      }
+      },
+      "SourceRetrievedAt": {
+        "Value": "2026-09-04",
+        "Kind": "tblDataSources.RetrievedAt",
+        "Status": "DECLARED_SOURCE_DATE_1900_SERIAL",
+        "SourceSheet": "Data_Sources",
+        "SourceRow": 6,
+        "OriginalExcelSerial": "46269"
+      },
+      "SourceURL": "https://game8.co/games/Neverness-to-Everness/archives/597525",
+      "SourceRole": "RAW_CONFLICT_OBSERVATION_NONOPERATIVE"
     }
   ],
   "GuideRankingMappings": {
@@ -17042,12 +17069,153 @@
     "ExplicitModuleArrayValues": 378,
     "ModuleInGameSamples": 1,
     "GuideRankingMatches": 52,
-    "GuideRankingGaps": 2
+    "GuideRankingGaps": 2,
+    "ArkMixingContractRows": 6
   },
   "TypeFilterPolicy": {
     "Decision": "USER_2026_11_28_PHASE2A6",
     "MissingCharacterMapping": "SHOW_ALL_WITH_TYPE_NO_GATE",
     "CurrentState": "NO_CHARACTER_TYPE_MAPPING_FILTER_DISABLED",
     "NeverInferFromRecommendations": true
-  }
+  },
+  "ArkMixingContract": [
+    {
+      "RecordID": "A9431F563BA37EBA6185866EFA7087DAAE497CE323C07212E8C2F5201BF42C49:2",
+      "DataStatus": "V028_UNVERIFIED_FOR_15",
+      "SourceRelativePath": "ark_mixing_contract_v028_R4_N3D2_REV_1.tsv",
+      "SourceSHA256": "A9431F563BA37EBA6185866EFA7087DAAE497CE323C07212E8C2F5201BF42C49",
+      "SourceRow": 2,
+      "SourceRole": "N3D2_CURRENT_DATA",
+      "OriginalArtifactStatus": "OPERATIVE_CURRENT_N3D2",
+      "SourceRetrievedAt": {
+        "Value": "2026-10-05T20:41:52.837858+00:00",
+        "Kind": "ReadAtUTC",
+        "Status": "DECLARED_IN_SOURCE"
+      },
+      "Original": {
+        "Field": "Alternatives",
+        "Scope": "CONTRACT",
+        "Rule": "Mix duplicate or equip separatecopy;showboth;no automaticwinner",
+        "MissingTreatment": "Choice useronly;no actual inventorymutation inreference",
+        "Source": "review/R9_KERNPFAD/NUTZERENTSCHEIDUNG_PRIORITAET_URTEIL_v028.md",
+        "SourceSHA256": "e5669b6c826c30c1e7060c19de75bd074492343fc7eb41227a0674d5b952a8d9",
+        "ReadAtUTC": "2026-10-05T20:41:52.837858+00:00"
+      }
+    },
+    {
+      "RecordID": "A9431F563BA37EBA6185866EFA7087DAAE497CE323C07212E8C2F5201BF42C49:3",
+      "DataStatus": "V028_UNVERIFIED_FOR_15",
+      "SourceRelativePath": "ark_mixing_contract_v028_R4_N3D2_REV_1.tsv",
+      "SourceSHA256": "A9431F563BA37EBA6185866EFA7087DAAE497CE323C07212E8C2F5201BF42C49",
+      "SourceRow": 3,
+      "SourceRole": "N3D2_CURRENT_DATA",
+      "OriginalArtifactStatus": "OPERATIVE_CURRENT_N3D2",
+      "SourceRetrievedAt": {
+        "Value": "2026-10-05T20:41:52.837858+00:00",
+        "Kind": "ReadAtUTC",
+        "Status": "DECLARED_IN_SOURCE"
+      },
+      "Original": {
+        "Field": "ConsumedCopy",
+        "Scope": "USER_INPUT",
+        "Rule": "Explicit differentUserArkID,sameArkID;consumedcopy levelandinvestmentlost byauthorizeduserdecision7",
+        "MissingTreatment": "Leveledcopy warning Investition geht verloren, Kopie auf Stufe 1 verwenden;no warningblock",
+        "Source": "review/R9_KERNPFAD/NUTZERENTSCHEIDUNG_PRIORITAET_URTEIL_v028.md",
+        "SourceSHA256": "e5669b6c826c30c1e7060c19de75bd074492343fc7eb41227a0674d5b952a8d9",
+        "ReadAtUTC": "2026-10-05T20:41:52.837858+00:00"
+      }
+    },
+    {
+      "RecordID": "A9431F563BA37EBA6185866EFA7087DAAE497CE323C07212E8C2F5201BF42C49:4",
+      "DataStatus": "V028_UNVERIFIED_FOR_15",
+      "SourceRelativePath": "ark_mixing_contract_v028_R4_N3D2_REV_1.tsv",
+      "SourceSHA256": "A9431F563BA37EBA6185866EFA7087DAAE497CE323C07212E8C2F5201BF42C49",
+      "SourceRow": 4,
+      "SourceRole": "N3D2_CURRENT_DATA",
+      "OriginalArtifactStatus": "OPERATIVE_CURRENT_N3D2",
+      "SourceRetrievedAt": {
+        "Value": "2026-10-05T20:41:52.837858+00:00",
+        "Kind": "ReadAtUTC",
+        "Status": "DECLARED_IN_SOURCE"
+      },
+      "Original": {
+        "Field": "RetainedCopy",
+        "Scope": "CONTRACT",
+        "Rule": "Retain targetUserArkID,Level,ArkAscensionStage;MixingLevel+1 if<5;consumedlevel notcopied",
+        "MissingTreatment": "Consumed copy removedonlyin hypotheticalresult;actualcommit outsideResearch",
+        "Source": "review/R9_KERNPFAD/NUTZERENTSCHEIDUNG_PRIORITAET_URTEIL_v028.md",
+        "SourceSHA256": "e5669b6c826c30c1e7060c19de75bd074492343fc7eb41227a0674d5b952a8d9",
+        "ReadAtUTC": "2026-10-05T20:41:52.837858+00:00"
+      }
+    },
+    {
+      "RecordID": "A9431F563BA37EBA6185866EFA7087DAAE497CE323C07212E8C2F5201BF42C49:5",
+      "DataStatus": "V028_UNVERIFIED_FOR_15",
+      "SourceRelativePath": "ark_mixing_contract_v028_R4_N3D2_REV_1.tsv",
+      "SourceSHA256": "A9431F563BA37EBA6185866EFA7087DAAE497CE323C07212E8C2F5201BF42C49",
+      "SourceRow": 5,
+      "SourceRole": "N3D2_CURRENT_DATA",
+      "OriginalArtifactStatus": "OPERATIVE_CURRENT_N3D2",
+      "SourceRetrievedAt": {
+        "Value": "2026-10-06T09:43:59.372191+00:00",
+        "Kind": "ReadAtUTC",
+        "Status": "DECLARED_IN_SOURCE"
+      },
+      "Original": {
+        "Field": "ObservedEvidence",
+        "Scope": "CONTRACT",
+        "Rule": "Gezogene KlingeLv7copy intoLv1target ->Lv1/20MixingII;userinvestmentreport distinctfromscreenproof",
+        "MissingTreatment": "All material refunds0 including leveledconsumedcopy;USER_DECISION_REV15_POINT7",
+        "Source": "review/R9_KERNPFAD/NUTZERENTSCHEIDUNG_PRIORITAET_URTEIL_v028.md",
+        "SourceSHA256": "350541e6dd4339a07e93099c2a00813ea9492df6165c896711c1eeca2e5e20ea",
+        "ReadAtUTC": "2026-10-06T09:43:59.372191+00:00"
+      }
+    },
+    {
+      "RecordID": "A9431F563BA37EBA6185866EFA7087DAAE497CE323C07212E8C2F5201BF42C49:6",
+      "DataStatus": "V028_UNVERIFIED_FOR_15",
+      "SourceRelativePath": "ark_mixing_contract_v028_R4_N3D2_REV_1.tsv",
+      "SourceSHA256": "A9431F563BA37EBA6185866EFA7087DAAE497CE323C07212E8C2F5201BF42C49",
+      "SourceRow": 6,
+      "SourceRole": "N3D2_CURRENT_DATA",
+      "OriginalArtifactStatus": "OPERATIVE_CURRENT_N3D2",
+      "SourceRetrievedAt": {
+        "Value": "2026-10-05T20:41:52.837858+00:00",
+        "Kind": "ReadAtUTC",
+        "Status": "DECLARED_IN_SOURCE"
+      },
+      "Original": {
+        "Field": "PassiveValue",
+        "Scope": "CONTRACT",
+        "Rule": "Mixing effects perArk andactuallevelsource;LastRose25%ofbase vsDrawnBlade15%ofbase step",
+        "MissingTreatment": "No genericmixingdamageslope/interpolation",
+        "Source": "review/R9_KERNPFAD/NUTZERENTSCHEIDUNG_PRIORITAET_URTEIL_v028.md",
+        "SourceSHA256": "e5669b6c826c30c1e7060c19de75bd074492343fc7eb41227a0674d5b952a8d9",
+        "ReadAtUTC": "2026-10-05T20:41:52.837858+00:00"
+      }
+    },
+    {
+      "RecordID": "A9431F563BA37EBA6185866EFA7087DAAE497CE323C07212E8C2F5201BF42C49:7",
+      "DataStatus": "V028_UNVERIFIED_FOR_15",
+      "SourceRelativePath": "ark_mixing_contract_v028_R4_N3D2_REV_1.tsv",
+      "SourceSHA256": "A9431F563BA37EBA6185866EFA7087DAAE497CE323C07212E8C2F5201BF42C49",
+      "SourceRow": 7,
+      "SourceRole": "N3D2_CURRENT_DATA",
+      "OriginalArtifactStatus": "OPERATIVE_CURRENT_N3D2",
+      "SourceRetrievedAt": {
+        "Value": "2026-10-05T20:41:52.837858+00:00",
+        "Kind": "ReadAtUTC",
+        "Status": "DECLARED_IN_SOURCE"
+      },
+      "Original": {
+        "Field": "Maximum",
+        "Scope": "CONTRACT",
+        "Rule": "MixingI..V;atV no furthermixplan;separatecopyoptionstillshown",
+        "MissingTreatment": "Local invalidplan only;never wholepackagefatal",
+        "Source": "review/R9_KERNPFAD/NUTZERENTSCHEIDUNG_PRIORITAET_URTEIL_v028.md",
+        "SourceSHA256": "e5669b6c826c30c1e7060c19de75bd074492343fc7eb41227a0674d5b952a8d9",
+        "ReadAtUTC": "2026-10-05T20:41:52.837858+00:00"
+      }
+    }
+  ]
 }

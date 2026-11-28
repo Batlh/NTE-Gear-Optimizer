@@ -130,4 +130,26 @@ def reference_sections(reference):
             )
         )
     sections.append(('modules', 'Module: belegte Werte', modules))
+    mixing = []
+    labels = {
+        'Alternatives': 'Alternativen',
+        'ConsumedCopy': 'Verbrauchte Kopie',
+        'RetainedCopy': 'Behaltene Kopie',
+        'ObservedEvidence': 'Beobachteter Vorgang',
+        'PassiveValue': 'Effektwerte',
+        'Maximum': 'Höchste Stufe',
+    }
+    for row in reference['ArkMixingContract']:
+        r = row['Original']
+        title = labels.get(r['Field'], 'Quellenhinweis') + '\n1.4 ungeprüft'
+        text = (
+            NOTICE
+            + '\nAus dem alten Projektvertrag; keine vollständige Wertetabelle je Ark und Mischstufe.\n\nOriginalhinweis: '
+            + r['Rule']
+            + '\nBei fehlenden Daten: '
+            + r['MissingTreatment']
+            + source_note(row)
+        )
+        mixing.append((row['RecordID'], title, text))
+    sections.append(('mixing', 'Mischstufen: Quellenhinweise', mixing))
     return sections

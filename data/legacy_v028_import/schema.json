@@ -13,11 +13,13 @@
     "ArkEffectReference",
     "ResearchSources",
     "CharacterArkTypes",
-    "Gaps"
+    "Gaps",
+    "ArkMixingContract"
   ],
   "EntityIDs": "Existing canonical IDs only; never derive from mutable display names.",
   "Records": "Immutable source SHA256 plus source row; original status and observation context retained.",
   "ReferenceUse": "No gameplay calculation, interpolation, automatic level/stage winner, or promotion of workbook cached formulas.",
   "Precedence": "When later merging into display catalogs, patch1.5 records win; original patch1.5 package remains byte-identical.",
-  "ArkTypeFilter": "Optional future sourced Character→ArkType table; no row means no filtering or gate."
+  "ArkTypeFilter": "Optional future sourced Character→ArkType table; no row means no filtering or gate.",
+  "MixingContract": "Original project-contract records, not a generic per-Ark/tier stat curve; no engine use."
 }

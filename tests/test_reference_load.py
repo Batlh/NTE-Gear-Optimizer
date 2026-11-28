@@ -27,9 +27,10 @@ def test_reference_every_numeric_record_and_set_is_visible_and_provenanced():
         ('sets', 12),
         ('cartridges', 63),
         ('modules', 37),
+        ('mixing', 6),
     ]
     rendered = {key: detail for _, _, rows in sections for key, _, detail in rows}
-    assert len(rendered) == 244
+    assert len(rendered) == 250
     for group in [
         'ArkExactPoints',
         'ArkObservedPoints',

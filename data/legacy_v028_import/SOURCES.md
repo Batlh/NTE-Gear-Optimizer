@@ -27,3 +27,8 @@ ohne Sperre oder Ausblendung. Eine spätere belegte Zuordnung kann den Filter ak
 Die Namen „Far Side of the Moon“ in zwei Guide-Zeilen haben im angenommenen
 Katalog noch keine zugeordnete Identität. Dafür wurde keine ID erfunden.
 Die MIT-Lizenz gilt für eigenen Code; Spielwerte und Quellmaterial bleiben davon getrennt.
+
+The six original Ark mixing-contract rows are retained separately as contract references,
+not an Ark-by-tier numeric table. They do not authorize interpolation or engine defaults.
+The two excluded Ark conflict observations keep their source dates from the frozen
+workbook Sources table; original effect texts/values are unchanged.

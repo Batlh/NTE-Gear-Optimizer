@@ -8,6 +8,10 @@ out.mkdir(parents=True, exist_ok=False)
 blocks = []
 baseline = os.environ.get('NTE_A5_BASELINE') == '1'
 compare = os.environ.get('NTE_A5_COMPARE') == '1'
+replication = os.environ.get('NTE_A5_POLL_REPLICATION') == '1'
+orders = [False, True, True, False] + (
+    [True, False, False, True] if replication else []
+)
 failure = None
 try:
     probe = json.loads(ui.Path('build/a3_probe_apk.json').read_text(encoding='utf-8'))
@@ -44,7 +48,7 @@ try:
             baseline
             or s['performance_probe']['display_listener_status'] == 'REGISTERED'
         ), s['performance_probe']
-        for skip in [False, True, True, False]:
+        for skip in orders:
             enabled = True
             ui.adb(
                 'shell',
@@ -119,6 +123,8 @@ finally:
     result = {
         'status': 'MEASURED' if not failure else 'FAIL',
         'failure': failure,
+        'replication': replication,
+        'order': orders,
         'profiling_blocks': blocks,
         'apk_probe': locals().get('probe'),
         'scope': 'AVD GL flip proxy; CPU inclusive spans; not Samsung physical timing.',

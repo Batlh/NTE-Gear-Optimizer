@@ -9,6 +9,8 @@ permissions:
   actions: read
 jobs:
   android:
+    env:
+      NTE_A5_POLL_REPLICATION: ${{ github.event.head_commit.message == 'Repeat paired keyboard probe timings with reversed order' && '1' || '0' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 65
     steps:

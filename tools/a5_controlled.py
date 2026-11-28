@@ -37,7 +37,35 @@ def prepare():
     assert len(apk) == 1
     digest = hashlib.sha256(apk[0].read_bytes()).hexdigest().upper()
     assert digest == '60C11DBA0516BCFF1ECAEAEB232A4AADB978DDF51BA16FD2C47CBD1B4BDCC0E8'
-    current = json.loads((ROOT / 'build/a3_probe_apk.json').read_text(encoding='utf-8'))
+    # Both comparison APKs are immutable: H01 and the display-read fix only.
+    # Do not silently compare against whichever later runtime the driver uses.
+    target_b = OUT / 'display_read_fix'
+    subprocess.run(
+        [
+            'gh',
+            'run',
+            'download',
+            '46140920049',
+            '--repo',
+            'Batlh/NTE-Gear-Optimizer',
+            '--name',
+            'android-emulator-only-apk',
+            '--dir',
+            str(target_b),
+        ],
+        check=True,
+    )
+    apks_b = list(target_b.rglob('*.apk'))
+    assert len(apks_b) == 1
+    digest_b = hashlib.sha256(apks_b[0].read_bytes()).hexdigest().upper()
+    assert (
+        digest_b == 'AC2243244B8CB7FDB5D6B05A177E44995968159A977C8777C3F6F6A677B28EED'
+    )
+    current = {
+        'apk': str(apks_b[0].resolve()),
+        'sha256': digest_b,
+        'commit': '3ac7b013c578664f349047286dd0567a2e0f1557',
+    }
     save(
         OUT / 'prepared.json',
         {

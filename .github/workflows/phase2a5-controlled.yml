@@ -26,7 +26,10 @@ jobs:
         if: always()
         with:
           name: a5-controlled-windows-${{ github.run_attempt }}
-          path: build/a5_controlled
+          path: |
+            build/a5_controlled/result.json
+            build/a5_controlled/results_*.json
+            build/a5_controlled/**/build/a5_profile_windows/*.png
   android:
     runs-on: ubuntu-24.04
     timeout-minutes: 65
@@ -35,10 +38,6 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: '3.14.10'
-      - name: Bind the exact native source payload
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python tools/a3_fetch_probe_apk.py android-emulator-only-apk
       - name: Bind original H01 probe
         env:
           GH_TOKEN: ${{ github.token }}
@@ -63,6 +62,9 @@ jobs:
         with:
           name: a5-controlled-android-${{ github.run_attempt }}
           path: |
-            build/a5_controlled
-            build/a3_probe_apk.json
+            build/a5_controlled/result.json
+            build/a5_controlled/results_*.json
+            build/a5_controlled/prepared.json
+            build/a5_controlled/**/build/a5_profile_android/**
+            build/a5_controlled/**/build/a3_android_fields/private_debug/**
 

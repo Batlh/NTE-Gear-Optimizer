@@ -50,6 +50,9 @@ s, ime = ui.record('design_after_ime_closed')
 (ui.out / 'state_ime_closed.json').write_text(
     json.dumps(s, ensure_ascii=True, indent=2) + '\n', encoding='utf-8', newline='\n'
 )
+ui.swipe(s['page_scroll'], s)
+s = ui.fresh()
+ui.record('design_hint_readable_after_scroll')
 rect, s = ui.reach(
     lambda s: s['selectors']['Charakter']['rect'], lambda s: s['page_scroll']
 )

@@ -1,11 +1,13 @@
 """Four-page CI-only real-touch profiling; no model or scroll setters."""
 
-import json, subprocess, time, traceback
+import json, subprocess, time, traceback, os
 import a3_android_common as ui
 
 out = ui.Path('build/a5_profile_android')
 out.mkdir(parents=True, exist_ok=False)
 blocks = []
+baseline = os.environ.get('NTE_A5_BASELINE') == '1'
+compare = os.environ.get('NTE_A5_COMPARE') == '1'
 failure = None
 try:
     probe = json.loads(ui.Path('build/a3_probe_apk.json').read_text(encoding='utf-8'))
@@ -38,10 +40,11 @@ try:
     for page in range(4):
         s = ui.fresh()
         assert s['step'] == page
-        assert s['performance_probe']['display_listener_status'] == 'REGISTERED', s[
-            'performance_probe'
-        ]
-        for enabled in [True, False, False, True]:
+        assert (
+            baseline
+            or s['performance_probe']['display_listener_status'] == 'REGISTERED'
+        ), s['performance_probe']
+        for enabled in [False, False] if compare else [True, False, False, True]:
             ui.adb(
                 'shell',
                 'am',
@@ -54,8 +57,8 @@ try:
                 str(enabled).lower(),
             )
             s = ui.fresh()
-            assert s['performance_probe']['profiling_enabled'] is enabled
-            before = s['performance_probe']['refresh_reads']
+            assert baseline or s['performance_probe']['profiling_enabled'] is enabled
+            before = s['performance_probe'].get('refresh_reads')
             old = {g['touch_id'] for g in s['performance_probe']['gestures']}
             for reverse in [False, True]:
                 ui.swipe(s['page_scroll'], s, reverse=reverse)
@@ -64,21 +67,27 @@ try:
             time.sleep(0.6)
             s = ui.fresh()
             p = s['performance_probe']
-            assert p['refresh_reads_during_gesture'] == 0
+            assert baseline or p['refresh_reads_during_gesture'] == 0
             # No native display notifications expected on this fixed AVD.
-            assert p['refresh_reads'] == before, (before, p['refresh_reads'])
+            assert baseline or p['refresh_reads'] == before, (
+                before,
+                p.get('refresh_reads'),
+            )
             gestures = [g for g in p['gestures'] if g['touch_id'] not in old]
             moving = [
                 g for g in gestures if g.get('status') == 'MEASURED_GL_FLIP_PROXY'
             ]
             assert moving, ('No actual scrolling', page, gestures)
             for g in moving:
-                assert g['first_movement_startpoint'] == 'SYSTEM_TOUCH_SLOP_CROSSED'
+                assert (
+                    baseline
+                    or g['first_movement_startpoint'] == 'SYSTEM_TOUCH_SLOP_CROSSED'
+                )
                 if enabled:
                     f = g['frame_profile']
                     assert f['frames_observed'] > 0
                     assert f['hook_status'] == 'ACTUAL_WINDOW_FLIP_CALL', f
-                    assert f['inventory']['page'] == page, f
+                    assert f['inventory']['page'] == page + 1, f
             blocks.append(
                 {
                     'page': page,

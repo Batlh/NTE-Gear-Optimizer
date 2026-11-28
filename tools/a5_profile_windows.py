@@ -144,9 +144,14 @@ class PerformanceProbe(ComparisonApp):
             self.vm.step = page
             self.render()
             yield 1.2
-            for enabled in [True, False, False, True]:
+            for enabled in (
+                [False, False]
+                if os.environ.get('NTE_A5_COMPARE') == '1'
+                else [True, False, False, True]
+            ):
                 self.debug.scroll_observer.metrics.finish()
-                self.debug.frame_profiler.enabled = enabled
+                if hasattr(self.debug, 'frame_profiler'):
+                    self.debug.frame_profiler.enabled = enabled
                 before = len(self.debug.scroll_observer.metrics.recent)
                 self.drag(False)
                 yield 2.3

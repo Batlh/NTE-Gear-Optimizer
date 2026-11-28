@@ -1,6 +1,7 @@
 """Isolated CI real OS drags; never foreground a local user application."""
 
 import ctypes
+from copy import deepcopy
 import json
 import os
 from pathlib import Path
@@ -170,7 +171,7 @@ class PerformanceProbe(ComparisonApp):
                         if gesture.get('status') == 'MEASURED_GL_FLIP_PROXY':
                             check_attribution(gesture['frame_profile'])
                 self.blocks.append(
-                    {'page': page, 'profiling': enabled, 'gestures': gestures}
+                    {'page': page, 'profiling': enabled, 'gestures': deepcopy(gestures)}
                 )
             self.capture_view(OUT, 'page_' + str(page))
 

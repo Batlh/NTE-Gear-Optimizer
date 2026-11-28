@@ -13,12 +13,13 @@ import weakref
 class TimedCallback:
     def __init__(self, original, attribution, release_ref=True):
         self.weak = (
-            weakref.WeakMethod(original)
+            weakref.ref(original.__self__)
             if release_ref
             and getattr(original, '__self__', None) is not None
             and hasattr(original, '__func__')
             else None
         )
+        self.method_name = original.__func__.__name__ if self.weak is not None else None
         self.strong = None if self.weak is not None else original
         self.attribution = weakref.ref(attribution)
         fn = original.func if isinstance(original, functools.partial) else original
@@ -30,7 +31,10 @@ class TimedCallback:
         self.index = attribution.name_id(self.name)
 
     def original(self):
-        return self.weak() if self.weak is not None else self.strong
+        if self.weak is None:
+            return self.strong
+        target = self.weak()
+        return getattr(target, self.method_name, None) if target is not None else None
 
     def __eq__(self, other):
         if isinstance(other, TimedCallback):

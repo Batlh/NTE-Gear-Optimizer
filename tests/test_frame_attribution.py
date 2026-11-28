@@ -37,7 +37,8 @@ def test_clipping_overflow_and_empty_frame_are_explicit():
     assert r['overflow'] == 3 and r['input_calls'] == CAPACITY + 3
     assert sum(r['exclusive_ms']) == pytest.approx(10)
     assert r['unassigned_ms'] == 0
-    assert p.frame(1, 1.02)['unassigned_ms'] == pytest.approx(20)
+    assert p.frame(1, 1.02)['unassigned_ms'] == 0  # Span remains active until t=2.
+    assert p.frame(3, 3.02)['unassigned_ms'] == pytest.approx(20)
 
 
 def test_gc_generations_and_callback_lifecycle():
@@ -233,3 +234,53 @@ def test_200_gestures_keep_attribution_bounded_and_errors_out_of_profile_log():
     finally:
         tracemalloc.stop()
         p.stop()
+
+
+def test_weak_clock_callback_resolves_replaced_method_like_kivy():
+    p = Attribution(lambda: False, lambda: 0)
+
+    class Target:
+        def method(self, dt):
+            return 'old'
+
+    target = Target()
+    wrapped = TimedCallback(target.method, p)
+    assert wrapped(0) == 'old'
+    target.method = lambda dt: 'new'
+    assert wrapped(0) == 'new'
+    assert wrapped == target.method
+
+
+def test_gc_during_attribution_is_carried_and_not_hidden():
+    now = [1.01]
+    p = Attribution(lambda: True, lambda: now[0])
+    p.accounting = True
+    p.gc_event('start', {'generation': 2})
+    now[0] = 1.014
+    p.gc_event('stop', {'generation': 2})
+    p.accounting = False
+    first = p.frame(1, 1.01)
+    assert first['gc_events'] == []
+    second = p.frame(1.01, 1.02)
+    assert second['gc_events'] == [[2, pytest.approx(4)]]
+    assert second['gc_counts'] == [0, 0, 1]
+    assert second['unassigned_ms'] == pytest.approx(6)
+
+
+def test_worker_gc_is_bounded_and_attributed_to_its_actual_interval():
+    now = [1.002]
+    p = Attribution(lambda: True, lambda: now[0])
+
+    def worker():
+        p.gc_event('start', {'generation': 0})
+        now[0] = 1.005
+        p.gc_event('stop', {'generation': 0})
+
+    thread = threading.Thread(target=worker)
+    thread.start()
+    thread.join()
+    r = p.frame(1, 1.01)
+    assert r['gc_events'] == [[0, pytest.approx(3)]]
+    assert r['gc_counts'] == [1, 0, 0]
+    assert r['gc_off_ui_events'] == 1
+    assert r['unassigned_ms'] == pytest.approx(7)

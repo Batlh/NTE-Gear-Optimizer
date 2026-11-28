@@ -16,6 +16,7 @@ CATEGORIES = (
     'keyboard_probe',
     'viewport',
     'texture',
+    'measurement',
     'gc',
 )
 CAPACITY = 2048
@@ -34,10 +35,16 @@ class Attribution:
         self.name_ids = {'OVERFLOW_OR_UNNAMED': 0}
         self.callback_ms = array('d', [0.0]) * CALLBACKS
         self.callback_calls = array('i', [0]) * CALLBACKS
+        self.gc_lock = threading.RLock()
+        self.gc_carry_start = array('d', [0.0]) * 32
+        self.gc_carry_end = array('d', [0.0]) * 32
+        self.gc_carry_gen = array('i', [0]) * 32
+        self.gc_carry_used = self.gc_carry_overflow = 0
         self.gc_start = array('d', [-1.0]) * 3
         self.kind_ids = {name: i for i, name in enumerate(CATEGORIES)}
         self.enabled = True
         self.accounting = False
+        self.next_spans = []
         self.gc_hook = self.gc_event
         self.gc_installed = False
         self.reset()
@@ -88,7 +95,10 @@ class Attribution:
         self.used += 1
 
     def gc_event(self, event, info):
-        if not self.recording():
+        # Include observer-induced GC too. During the sweep, carry its
+        # completed interval into the next frame instead of recursively
+        # modifying the interval list that is currently being accounted.
+        if not self.enabled or not self.active():
             return
         gen = info['generation']
         if gen not in (0, 1, 2):
@@ -96,8 +106,21 @@ class Attribution:
         if event == 'start':
             self.gc_start[gen] = self.clock()
         elif self.gc_start[gen] >= 0:
-            self.gc_counts[gen] += 1
-            self.span('gc', self.gc_start[gen], self.clock(), gen)
+            end = self.clock()
+            off_ui = threading.get_ident() != self.thread
+            if self.accounting or off_ui:
+                with self.gc_lock:
+                    i = self.gc_carry_used
+                    if i < 32:
+                        self.gc_carry_start[i] = self.gc_start[gen]
+                        self.gc_carry_end[i] = end
+                        self.gc_carry_gen[i] = gen + (3 if off_ui else 0)
+                        self.gc_carry_used += 1
+                    else:
+                        self.gc_carry_overflow += 1
+            else:
+                self.gc_counts[gen] += 1
+                self.span('gc', self.gc_start[gen], end, gen)
             self.gc_start[gen] = -1
 
     def install_gc(self):
@@ -110,19 +133,48 @@ class Attribution:
             gc.callbacks.remove(self.gc_hook)
             self.gc_installed = False
 
+    def drain_gc(self):
+        with self.gc_lock:
+            for i in range(self.gc_carry_used):
+                tag = self.gc_carry_gen[i]
+                self.gc_counts[tag % 3] += 1
+                self.span('gc', self.gc_carry_start[i], self.gc_carry_end[i], tag)
+            self.gc_carry_used = 0
+            self.overflow += self.gc_carry_overflow
+            self.gc_carry_overflow = 0
+
     def frame(self, lower, upper):
+        self.drain_gc()
         self.accounting = True
         try:
             return self._frame(lower, upper)
         finally:
             self.accounting = False
+            for kind, start, end, tag in self.next_spans:
+                self.span(CATEGORIES[kind], start, end, tag)
+            self.next_spans.clear()
+            self.drain_gc()
 
     def _frame(self, lower, upper):
         # Allocation/sorting occurs once at frame end, never per move event.
         events = []
+        future = []
         inclusive = [0.0] * len(CATEGORIES)
         gc_events = []
+        gc_off_ui_events = 0
         for i in range(self.used):
+            # Flip timestamp precedes observer bookkeeping. GC triggered by
+            # that bookkeeping can already be pending but belongs to the next
+            # physical flip interval; never discard it at the boundary.
+            if self.ends[i] > upper:
+                future.append(
+                    (
+                        self.kinds[i],
+                        max(upper, self.starts[i]),
+                        self.ends[i],
+                        self.details[i],
+                    )
+                )
             a, b = max(lower, self.starts[i]), min(upper, self.ends[i])
             if b > a:
                 kind = self.kinds[i]
@@ -130,7 +182,8 @@ class Attribution:
                 events.append((a, kind, 1))
                 events.append((b, kind, -1))
                 if CATEGORIES[kind] == 'gc':
-                    gc_events.append([self.details[i], (b - a) * 1000])
+                    gc_events.append([self.details[i] % 3, (b - a) * 1000])
+                    gc_off_ui_events += int(self.details[i] >= 3)
         events.sort()
         active = [0] * len(CATEGORIES)
         exclusive = [0.0] * len(CATEGORIES)
@@ -153,8 +206,11 @@ class Attribution:
             'unassigned_ms': max(0, (upper - lower) * 1000 - sum(exclusive)),
             'clock_calls': self.clock_calls,
             'input_calls': self.input_calls,
-            'gc_counts': self.gc_counts[:],
+            'gc_counts': [
+                sum(event[0] == gen for event in gc_events) for gen in range(3)
+            ],
             'gc_events': gc_events,
+            'gc_off_ui_events': gc_off_ui_events,
             'texture_changes': self.texture_changes,
             'clock_top5': [
                 [i, self.callback_calls[i], self.callback_ms[i]] for i in top
@@ -162,4 +218,5 @@ class Attribution:
             'overflow': self.overflow,
         }
         self.reset()
+        self.next_spans = future
         return result

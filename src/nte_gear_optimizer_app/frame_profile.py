@@ -174,6 +174,7 @@ class FrameProfiler:
 
     def record(self, flip_ms):
         now = self.clock()
+        observer_started = now
 
         def get(n):
             return self.pending.get(n, (0, 0))
@@ -201,9 +202,29 @@ class FrameProfiler:
         self.pending.clear()
         self.draw_start = None
         self.draw_ms = 0
+        self.attribution.span('measurement', observer_started, self.clock())
 
     def finish(self):
         rows = list(self.rows)
+        attribution_frames = list(self.attribution_rows)
+        valid = [f for f in attribution_frames if f['interval_available']]
+        attribution_summary = {
+            'complete_intervals': len(valid),
+            'unassigned_ms': summary([f['unassigned_ms'] for f in valid]),
+            'exclusive_total_ms': {
+                name: sum(f['exclusive_ms'][i] for f in valid)
+                for i, name in enumerate(CATEGORIES)
+            },
+            'gc_events': sum(len(f['gc_events']) for f in attribution_frames),
+            'gc_counts_by_generation': [
+                sum(f['gc_counts'][g] for f in attribution_frames) for g in range(3)
+            ],
+            'input_calls': sum(f['input_calls'] for f in attribution_frames),
+            'clock_calls': sum(f['clock_calls'] for f in attribution_frames),
+            'texture_changes': sum(f['texture_changes'] for f in attribution_frames),
+            'overflow': sum(f['overflow'] for f in attribution_frames),
+            'scope': 'Same retained frame window as raw rows; truncation is explicit. Summary survives removal of raw frames from older gestures.',
+        }
         result = {
             'enabled': self.enabled,
             'hook_status': self.hook_status,
@@ -220,7 +241,8 @@ class FrameProfiler:
                 'schema': 1,
                 'categories': CATEGORIES,
                 'callback_names': self.attribution.names[:],
-                'frames': list(self.attribution_rows),
+                'frames': attribution_frames,
+                'summary': attribution_summary,
                 'first_scroll_on_view': self.first_view,
                 'view_label': getattr(self, 'view_label', None),
                 'runtime_hooks': self.runtime_hooks.status

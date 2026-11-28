@@ -141,7 +141,8 @@ def test_actual_reference_library_callback_is_read_only_and_detail_scrollable():
                     'zero_group',
                     'calculate',
                 }
-    assert 'load_mode.values' in ast.unparse(methods['load_fields_screen'])
+    assert 'load_text_input' in ast.unparse(methods['load_fields_screen'])
+    assert 'load_mode.values' in ast.unparse(methods['load_text_input'])
 
 
 def test_current_editor_input_type_never_uses_historical_text_input():

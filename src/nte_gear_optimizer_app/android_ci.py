@@ -243,6 +243,22 @@ def install_probe(app):
             'decimal_buttons': {
                 ':'.join(k): rect(w) for k, w in app.decimal_buttons.items()
             },
+            'load_inputs': {
+                ':'.join(map(str, k)): {
+                    'rect': rect(w),
+                    'text': w.text,
+                    'focus': w.focus,
+                    'hint': w._nte_hint.text,
+                }
+                for k, w in app.load_fields.items()
+            }
+            if app.load_mode.enabled and app.vm.step == 2
+            else {},
+            'load_decimal_buttons': {
+                ':'.join(map(str, k)): rect(w) for k, w in app.load_commas.items()
+            }
+            if app.load_mode.enabled and app.vm.step == 2
+            else {},
             'comparison_inputs': {
                 'current': dict(app.vm.current),
                 'before': dict(app.vm.item_x),

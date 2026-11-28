@@ -193,6 +193,16 @@ try:
             if g['touch_id'] not in old and g.get('status') == 'MEASURED_GL_FLIP_PROXY'
         ]
         assert gestures, ('No actual step3 scrolling', enabled)
+        inventories = [g['frame_profile']['inventory'] for g in gestures]
+        assert all(
+            i.get('page') == 3 and i.get('widgets', 0) > 0 for i in inventories
+        ), inventories
+        if enabled:
+            assert all(350 <= i['widgets'] <= 550 for i in inventories), (
+                'Load should be about400 actual widgets',
+                inventories,
+            )
+
         records.append(
             {
                 'kind': 'load_step3' if enabled else 'normal_step3',
@@ -203,6 +213,25 @@ try:
             }
         )
     assert s['comparison_inputs'] == original
+    s = command('--ez', 'nte_ci_load_mode', 'true')
+    key = '0:before:ScaleDirect'
+    rect, s = ui.reach(
+        lambda s: s['load_inputs'][key]['rect'], lambda s: s['page_scroll']
+    )
+    ui.tap(rect, s)
+    ui.adb('shell', 'input', 'text', '1')
+    s = ui.fresh()
+    ui.tap(s['load_decimal_buttons'][key], s)
+    ui.adb('shell', 'input', 'text', '5')
+    s = ui.fresh()
+    assert s['load_inputs'][key]['text'] == '1,5' and s['comparison_inputs'] == original
+    (out / 'load_comma.png').write_bytes(
+        subprocess.check_output(['adb', 'exec-out', 'screencap', '-p'])
+    )
+    ui.adb('shell', 'input', 'keyevent', '66')
+    records.append(
+        {'kind': 'load_numeric_input', 'value': '1,5', 'actual_inputs_unchanged': True}
+    )
 except Exception:
     failure = traceback.format_exc()
 finally:

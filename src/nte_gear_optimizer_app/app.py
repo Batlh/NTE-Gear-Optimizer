@@ -71,6 +71,7 @@ class ComparisonApp(App):
 
         self.load_mode = LoadMode({})
         self.load_fields = {}
+        self.load_commas = {}
         self.inputs = {}
         self.white_box = None
         self.zero_buttons = []
@@ -318,8 +319,9 @@ class ComparisonApp(App):
         ]
 
     def dismiss_keyboard(self):
-        for widget in self.inputs.values():
-            widget.focus = False
+        for widgets in (self.inputs, self.load_fields):
+            for widget in widgets.values():
+                widget.focus = False
         if self.keyboard_session:
             self.keyboard_session.close()
         if self.keyboard_viewport:
@@ -647,6 +649,8 @@ class ComparisonApp(App):
         'inputs',
         'input_hints',
         'decimal_buttons',
+        'load_fields',
+        'load_commas',
         'white_box',
         'white_anchor',
         'zero_buttons',
@@ -746,6 +750,8 @@ class ComparisonApp(App):
             'inputs': {},
             'input_hints': {},
             'decimal_buttons': {},
+            'load_fields': {},
+            'load_commas': {},
             'white_box': None,
             'white_anchor': None,
             'zero_buttons': [],
@@ -1038,6 +1044,74 @@ class ComparisonApp(App):
         self.selector_specs[title] = (entries, self.load_mode.choice)
         self.open_selector(title, entries, self.load_mode.select)
 
+    def load_text_input(self, key):
+        # Same component shape as real inputs, but all values/hints/callbacks
+        # stay in the synthetic mode. This is load, not another build input.
+        widget = DesignTextInput(
+            text=self.load_mode.values.get(key, ''),
+            multiline=False,
+            font_name='NTEText',
+            font_size=sp(16),
+            size_hint_y=None,
+            height=dp(50),
+            keyboard_mode='managed' if KIVY_PLATFORM == 'android' else 'auto',
+            input_type='number' if KIVY_PLATFORM == 'android' else 'text',
+            unfocus_on_touch=False,
+            write_tab=False,
+        )
+        widget._nte_integer_only = False
+        widget.bind(on_text_validate=lambda w: setattr(w, 'focus', False))
+        if self.keyboard_session:
+            widget.bind(focus=self.keyboard_session.focus_changed)
+        widget.bind(focus=self.focus_scroll)
+        widget.bind(text=lambda _, v: self.load_mode.values.__setitem__(key, v))
+        box = BoxLayout(
+            orientation='vertical', size_hint_y=None, height=dp(50), pos_hint={'top': 1}
+        )
+        hint = Label(
+            text='',
+            font_name='NTEText',
+            font_size=sp(14),
+            halign='left',
+            valign='middle',
+            size_hint_y=None,
+            height=0,
+            color=rgba('warning_text'),
+        )
+        hint.bind(width=lambda w, v: setattr(w, 'text_size', (v, None)))
+
+        def resize(*_):
+            hint.height = max(dp(32), hint.texture_size[1] + dp(8)) if hint.text else 0
+            box.height = dp(50) + hint.height
+
+        def validate(_, value):
+            hint.text = numeric_hint(value)
+            resize()
+
+        hint.bind(texture_size=resize)
+        widget.bind(text=validate)
+        if KIVY_PLATFORM == 'android':
+            field_row = BoxLayout(spacing=dp(4), size_hint_y=None, height=dp(50))
+            field_row.add_widget(widget)
+
+            def insert_comma():
+                widget.focus = True
+                widget.insert_text(',')
+
+            comma = self.button(',', insert_comma)
+            comma.size_hint = (None, None)
+            comma.size = (dp(44), dp(50))
+            field_row.add_widget(comma)
+            box.add_widget(field_row)
+            self.load_commas[key] = comma
+        else:
+            box.add_widget(widget)
+        box.add_widget(hint)
+        widget._nte_hint = hint
+        validate(widget, widget.text)
+        self.load_fields[key] = widget
+        return box
+
     def load_fields_screen(self):
         if not self.load_mode.enabled:
             return
@@ -1067,31 +1141,10 @@ class ComparisonApp(App):
                     row = BoxLayout(spacing=dp(8), size_hint_y=None, height=dp(52))
                     for side in ('before', 'after'):
                         key = (copy, side, field)
-                        widget = DesignTextInput(
-                            text=self.load_mode.values.get(key, ''),
-                            multiline=False,
-                            font_name='NTEText',
-                            font_size=sp(16),
-                            size_hint_y=None,
-                            height=dp(50),
-                            keyboard_mode='managed'
-                            if KIVY_PLATFORM == 'android'
-                            else 'auto',
-                            input_type='number'
-                            if KIVY_PLATFORM == 'android'
-                            else 'text',
-                            unfocus_on_touch=False,
-                        )
-                        widget._nte_integer_only = False
-                        if self.keyboard_session:
-                            widget.bind(focus=self.keyboard_session.focus_changed)
-                        widget.bind(
-                            text=lambda _, v, key=key: (
-                                self.load_mode.values.__setitem__(key, v)
-                            )
-                        )
-                        self.load_fields[key] = widget
-                        row.add_widget(widget)
+                        row.add_widget(self.load_text_input(key))
+                    row.bind(
+                        minimum_height=lambda w, v: setattr(w, 'height', max(dp(52), v))
+                    )
                     self.body.add_widget(row)
 
     def open_legacy_library(self):

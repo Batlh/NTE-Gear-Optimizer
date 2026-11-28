@@ -73,14 +73,16 @@ def reference_sections(reference):
     for row in reference['CartridgeLevels']:
         r = row['Original']
         label = STAT_LABELS.get(r['StatID'], 'weiterer Wert')
-        title = f'Seltenheit {r["Rarity"]} · Lv {r["ItemLevel"]}\n{label}: {r["Value"]} Prozentpunkte'
-        text = (
-            NOTICE
-            + '\n'
-            + title
-            + '\nBeobachtete Werte unterschiedlicher Exemplare; keine abgeleitete Aufwertungskurve.'
-            + source_note(row)
+        known = r.get('Value') not in ('', None)
+        value = r['Value'] + ' Prozentpunkte' if known else 'nicht belegt'
+        title = f'Seltenheit {r["Rarity"]} · Lv {r["ItemLevel"]}\n{label}: {value}'
+        context = (
+            'Beobachtete Werte unterschiedlicher Exemplare; keine abgeleitete Aufwertungskurve.'
+            if known
+            else 'Für diese Zwischenstufe liegt kein belegter Wert vor. Es wird nicht interpoliert.\nQuellenhinweis: '
+            + r['EmptyReason']
         )
+        text = NOTICE + '\n' + title + '\n' + context + source_note(row)
         cartridges.append((row['RecordID'], title, text))
     sections.append(('cartridges', 'Kassetten-Hauptwerte', cartridges))
     modules = []

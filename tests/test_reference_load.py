@@ -158,3 +158,25 @@ def test_current_editor_input_type_never_uses_historical_text_input():
     for invalid in ['inputType=0x3002', text + text]:
         with pytest.raises(ValueError):
             mod.current_editor_input_type(invalid)
+
+
+def test_missing_cartridge_level_rows_display_unknown_never_a_blank_number():
+    reference = load_reference()
+    rows = next(
+        rows for key, _, rows in reference_sections(reference) if key == 'cartridges'
+    )
+    display = {key: (title, text) for key, title, text in rows}
+    missing = known = 0
+    for row in reference['CartridgeLevels']:
+        title, text = display[row['RecordID']]
+        if row['Original']['Value'] == '':
+            missing += 1
+            assert 'nicht belegt' in title and 'Prozentpunkte' not in title
+            assert (
+                row['Original']['EmptyReason'] in text
+                and 'Es wird nicht interpoliert.' in text
+            )
+        else:
+            known += 1
+            assert row['Original']['Value'] + ' Prozentpunkte' in title
+    assert (known, missing) == (6, 57)

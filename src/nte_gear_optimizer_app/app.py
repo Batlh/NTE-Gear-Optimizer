@@ -67,6 +67,10 @@ class ComparisonApp(App):
         # No approved Character -> ArkType mapping exists yet. No inference
         # from recommendations; absent mapping always keeps every Ark visible.
         self.character_ark_type_mappings = []
+        from .load_mode import LoadMode
+
+        self.load_mode = LoadMode({})
+        self.load_fields = {}
         self.inputs = {}
         self.white_box = None
         self.zero_buttons = []
@@ -75,6 +79,7 @@ class ComparisonApp(App):
         self.clarification_expanded = False
         self.show_all_values = False
         self.input_hints = {}
+        self.decimal_buttons = {}
         self.active_selector = None
         self.active_debug = None
         self.debug = None
@@ -306,6 +311,7 @@ class ComparisonApp(App):
                 'id': key,
                 'name': name,
                 'index': i,
+                'view_uid': rendered[key].uid if key in rendered else None,
                 'rect': rect(rendered[key]) if key in rendered else None,
             }
             for i, (name, key) in enumerate(scroll.entries)
@@ -362,6 +368,8 @@ class ComparisonApp(App):
             widget = self.building_page['controls'][key]
             self.inputs[(group, field)] = widget
             self.input_hints[(group, field)] = widget._nte_hint
+            if getattr(widget, '_nte_comma', None) is not None:
+                self.decimal_buttons[(group, field)] = widget._nte_comma
             if widget.text != (value or ''):
                 widget.text = value or ''
             return widget._nte_box
@@ -378,8 +386,11 @@ class ComparisonApp(App):
             # let the global touch-up focus handler immediately close its IME.
             # Selection of another field and Done/navigation still dismiss it.
             unfocus_on_touch=False,
-            input_type='number' if group == 'level' else 'text',
+            input_type='number'
+            if KIVY_PLATFORM == 'android' or group == 'level'
+            else 'text',
         )
+        widget._nte_integer_only = group == 'level'
         widget.bind(on_text_validate=lambda field: setattr(field, 'focus', False))
         if self.keyboard_session:
             widget.bind(focus=self.keyboard_session.focus_changed)
@@ -420,7 +431,25 @@ class ComparisonApp(App):
 
         hint.bind(texture_size=resize)
         widget.bind(text=validate)
-        box.add_widget(widget)
+        if KIVY_PLATFORM == 'android' and group != 'level':
+            row = BoxLayout(spacing=dp(4), size_hint_y=None, height=dp(50))
+            row.add_widget(widget)
+
+            def insert_comma():
+                widget.focus = True
+                widget.insert_text(',')
+
+            comma = self.button(
+                ',', insert_comma, cache_key='comma:' + group + ':' + field
+            )
+            comma.size_hint = (None, None)
+            comma.size = (dp(44), dp(50))
+            row.add_widget(comma)
+            self.decimal_buttons[(group, field)] = comma
+            widget._nte_comma = comma
+            box.add_widget(row)
+        else:
+            box.add_widget(widget)
         box.add_widget(hint)
         validate(widget, widget.text)
         self.input_hints[(group, field)] = hint
@@ -463,6 +492,9 @@ class ComparisonApp(App):
         from .debug_control import DebugControl
 
         self.debug = DebugControl(self)
+        from .load_mode import LoadMode
+
+        self.load_mode = LoadMode(self.debug.metadata)
         self.debug.journal.emit('frame_policy', **FRAME_POLICY)
         if KIVY_PLATFORM == 'android':
             from .frame_policy import request_android_mode
@@ -470,9 +502,11 @@ class ComparisonApp(App):
             request_android_mode(self.debug.journal.emit)
         if KIVY_PLATFORM == 'android':
             from .keyboard_session import KeyboardSession
+            from .numeric_keyboard import android_keyboard
 
+            self.numeric_keyboard = android_keyboard(self.debug.journal.emit)
             self.keyboard_session = KeyboardSession(
-                Window, Clock, self.debug.journal.emit
+                Window, Clock, self.debug.journal.emit, self.numeric_keyboard.configure
             )
         Window.bind(on_motion=self.observe_touch_lifetime)
         header = BoxLayout(spacing=dp(12), size_hint_y=None, height=dp(64))
@@ -612,6 +646,7 @@ class ComparisonApp(App):
     PAGE_FIELDS = (
         'inputs',
         'input_hints',
+        'decimal_buttons',
         'white_box',
         'white_anchor',
         'zero_buttons',
@@ -625,7 +660,12 @@ class ComparisonApp(App):
             groups = tuple(
                 (k, tuple(v)) for k, v in self.vm.groups(self.vm.step == 2).items()
             )
-            return (self.vm.step, groups, self.vm.profile().get('ScalingStat'))
+            return (
+                self.vm.step,
+                groups,
+                self.vm.profile().get('ScalingStat'),
+                self.load_mode.enabled,
+            )
         return (self.vm.step,)
 
     def page_signature(self):
@@ -705,6 +745,7 @@ class ComparisonApp(App):
         defaults = {
             'inputs': {},
             'input_hints': {},
+            'decimal_buttons': {},
             'white_box': None,
             'white_anchor': None,
             'zero_buttons': [],
@@ -731,6 +772,7 @@ class ComparisonApp(App):
                 self.body.begin_refresh()
                 self.inputs = {}
                 self.input_hints = {}
+                self.decimal_buttons = {}
                 self.selector_specs = {}
                 self.selector_widgets = {}
                 self.jump_buttons = {}
@@ -942,6 +984,141 @@ class ComparisonApp(App):
         self.show_all_values = not self.show_all_values
         self.render()
 
+    def show_reference_detail(self, text):
+        self.dismiss_keyboard()
+        popup = ModalView(
+            size_hint=(0.96, 0.90),
+            auto_dismiss=False,
+            background='',
+            background_color=rgba('surface'),
+        )
+        layout = BoxLayout(orientation='vertical', padding=dp(12), spacing=dp(8))
+        scroll = ResponsiveScrollView(do_scroll_x=False)
+        scroll.add_widget(self.label(text, 14))
+        layout.add_widget(scroll)
+
+        def close():
+            popup.dismiss(animation=False)
+            self.active_debug = None
+
+        button = self.button('Schließen', close)
+        layout.add_widget(button)
+        popup.add_widget(layout)
+        self.active_debug = (popup, {'Schließen': button})
+        self.debug.scroll_observer.attach(scroll, 'reference:detail')
+        popup.bind(
+            on_dismiss=lambda *_: self.debug.frame_profiler.queue_inventory(
+                self.root_box, self.vm.step + 1
+            )
+        )
+        popup.open(animation=False)
+        self.debug.trace.attach_tree(popup)
+        self.debug.frame_profiler.queue_inventory(popup, 'reference:detail')
+
+    def set_load_mode(self, enabled):
+        if not self.load_mode.available:
+            return
+        self.load_mode.set_enabled(enabled)
+        self.debug.journal.emit('test_load_mode', enabled=self.load_mode.enabled)
+        self.render()
+
+    def open_load_list(self, kind):
+        if not self.load_mode.available:
+            return
+        entries = (
+            self.load_mode.ark_rows(self.vm.catalog['Arks'])
+            if kind == 'arks'
+            else self.load_mode.inventory_rows()
+        )
+        title = (
+            'Belastungstest: 300 Arks'
+            if kind == 'arks'
+            else 'Belastungstest: 100 Teile'
+        )
+        self.selector_specs[title] = (entries, self.load_mode.choice)
+        self.open_selector(title, entries, self.load_mode.select)
+
+    def load_fields_screen(self):
+        if not self.load_mode.enabled:
+            return
+        self.body.add_widget(
+            self.label(
+                'Nur Belastungstest: zwei zusätzliche Feldgruppen, ohne Wirkung auf das Ergebnis.',
+                14,
+            )
+        )
+        for copy in range(2):
+            for group, fields in self.vm.groups(parts=True).items():
+                self.body.add_widget(
+                    self.label(
+                        'Testgruppe ' + str(copy + 1) + ' · ' + T.GROUP_NAMES[group],
+                        17,
+                        bold=True,
+                    )
+                )
+                for field in fields:
+                    self.body.add_widget(
+                        self.label(
+                            T.field_label(
+                                field, self.vm.profile().get('ScalingStat'), True
+                            )
+                        )
+                    )
+                    row = BoxLayout(spacing=dp(8), size_hint_y=None, height=dp(52))
+                    for side in ('before', 'after'):
+                        key = (copy, side, field)
+                        widget = DesignTextInput(
+                            text=self.load_mode.values.get(key, ''),
+                            multiline=False,
+                            font_name='NTEText',
+                            font_size=sp(16),
+                            size_hint_y=None,
+                            height=dp(50),
+                            keyboard_mode='managed'
+                            if KIVY_PLATFORM == 'android'
+                            else 'auto',
+                            input_type='number'
+                            if KIVY_PLATFORM == 'android'
+                            else 'text',
+                            unfocus_on_touch=False,
+                        )
+                        widget._nte_integer_only = False
+                        if self.keyboard_session:
+                            widget.bind(focus=self.keyboard_session.focus_changed)
+                        widget.bind(
+                            text=lambda _, v, key=key: (
+                                self.load_mode.values.__setitem__(key, v)
+                            )
+                        )
+                        self.load_fields[key] = widget
+                        row.add_widget(widget)
+                    self.body.add_widget(row)
+
+    def open_legacy_library(self):
+        from .reference_view import reference_sections, NOTICE
+
+        reference = self.vm.catalog.get('LegacyReference')
+        if reference is None:
+            return
+        sections = reference_sections(reference)
+
+        def open_section(title, records):
+            entries = [(name, key) for key, name, _ in records]
+            details = {key: detail for key, _, detail in records}
+            self.selector_specs[title] = (entries, None)
+            self.open_selector(
+                title, entries, lambda key: self.show_reference_detail(details[key])
+            )
+
+        self.debug.popup(
+            NOTICE,
+            [
+                (title, lambda title=title, rows=rows: open_section(title, rows))
+                for _, title, rows in sections
+            ]
+            + [('Schließen', lambda: None)],
+        )
+
     def selection(self):
         self.spinner(
             T.UI['character'],
@@ -967,6 +1144,14 @@ class ComparisonApp(App):
             self.vm.ark_id,
             lambda value: self.change(self.vm.choose_ark, value),
         )
+        if self.vm.catalog.get('LegacyReference') is not None:
+            self.body.add_widget(
+                self.button(
+                    'Alte Daten ansehen (1.4 ungeprüft)',
+                    self.open_legacy_library,
+                    cache_key='legacy:library',
+                )
+            )
         self.body.add_widget(self.label(T.UI['ark_level']))
         self.body.add_widget(self.text_input('level', 'ArkLevel', self.vm.ark_level))
         self.spinner(
@@ -1123,6 +1308,7 @@ class ComparisonApp(App):
             self.white_anchor = self.label(T.UI['parts_hint'])
             self.body.add_widget(self.white_anchor)
             self.update_white_visibility()
+            self.load_fields_screen()
 
     def on_pause(self):
         self.dismiss_keyboard()

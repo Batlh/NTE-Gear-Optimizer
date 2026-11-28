@@ -41,6 +41,13 @@ def install_probe(app):
     Window.bind(on_flip=flip_count)
 
     def performance_intent(intent):
+        if intent.hasExtra('nte_ci_load_mode'):
+            enabled = bool(intent.getBooleanExtra('nte_ci_load_mode', False))
+            Clock.schedule_once(lambda dt: app.set_load_mode(enabled), 0)
+        if intent.hasExtra('nte_ci_load_list'):
+            kind = str(intent.getStringExtra('nte_ci_load_list'))
+            if kind in ('arks', 'inventory'):
+                Clock.schedule_once(lambda dt: app.open_load_list(kind), 0)
         if intent.hasExtra('nte_ci_defer_input_flush'):
             enabled = bool(intent.getBooleanExtra('nte_ci_defer_input_flush', False))
             Clock.schedule_once(
@@ -225,9 +232,32 @@ def install_probe(app):
                 for label, w in app.selector_widgets.items()
             },
             'inputs': {
-                group + ':' + field: {'rect': rect(w), 'text': w.text, 'focus': w.focus}
+                group + ':' + field: {
+                    'rect': rect(w),
+                    'text': w.text,
+                    'focus': w.focus,
+                    'hint': w._nte_hint.text,
+                }
                 for (group, field), w in app.inputs.items()
             },
+            'decimal_buttons': {
+                ':'.join(k): rect(w) for k, w in app.decimal_buttons.items()
+            },
+            'comparison_inputs': {
+                'current': dict(app.vm.current),
+                'before': dict(app.vm.item_x),
+                'after': dict(app.vm.item_y),
+                'white': app.vm.white_panel_base,
+            },
+            'load_mode': {
+                'available': app.load_mode.available,
+                'enabled': app.load_mode.enabled,
+                'choice': app.load_mode.choice,
+                'fields': len(app.load_fields),
+            },
+            'numeric_flags': getattr(
+                getattr(app, 'numeric_keyboard', None), 'last', None
+            ),
             'next': rect(app.next_button),
             'back': rect(app.back_button),
         }

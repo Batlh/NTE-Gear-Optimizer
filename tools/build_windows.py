@@ -24,6 +24,7 @@ with metadata.open('x', encoding='utf-8', newline='\n') as target:
             .decode()
             .strip(),
             'app_version': '0.29.0 Phase 2A-4 (Test)',
+            'test_build': True,
             'emulator_test_only': False,
         },
         target,

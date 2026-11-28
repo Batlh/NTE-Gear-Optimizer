@@ -446,8 +446,28 @@ class DebugControl:
             actions.insert(
                 1, ('In Downloads speichern', lambda: self.confirm_export('downloads'))
             )
+        if self.app.load_mode.available:
+            actions.append(('Belastungstest (nur Test-Build)', self.load_menu))
         actions.append(('Schließen', lambda: None))
         self.popup('Debug – nur auf diesem Gerät', actions)
+
+    def load_menu(self):
+        if not self.app.load_mode.available:
+            return
+        self.popup(
+            'Nur Testdaten – keine Inventarfunktion',
+            [
+                (
+                    'Zusatzfelder aus'
+                    if self.app.load_mode.enabled
+                    else 'Zusatzfelder an',
+                    lambda: self.app.set_load_mode(not self.app.load_mode.enabled),
+                ),
+                ('300 Ark-Zeilen', lambda: self.app.open_load_list('arks')),
+                ('100 Teile-Zeilen', lambda: self.app.open_load_list('inventory')),
+                ('Schließen', lambda: None),
+            ],
+        )
 
     def choose_report_mode(self):
         def choose(full):

@@ -3,7 +3,7 @@
 import json
 import os
 from pathlib import Path
-from android_ime_state import read_ime_state
+from android_ime_state import read_ime_state, current_editor_input_type
 import subprocess
 import time
 import sys
@@ -326,6 +326,25 @@ try:
     tap(s['modal']['cancel'], s)
     s = fresh()
     assert s['character_id'] == old
+    # Integer-only level: reach through real page gestures, not UI mutation.
+    for _ in range(24):
+        field = s['inputs']['level:ArkLevel']
+        if visible(field['rect'], s['page_scroll']):
+            break
+        swipe(s['page_scroll'], s, reverse=field['rect'][1] > s['page_scroll'][1])
+        s = fresh()
+    else:
+        raise AssertionError('Ark level field unreachable')
+    tap(field['rect'], s)
+    time.sleep(2)
+    level_dump = adb('shell', 'dumpsys', 'input_method')
+    (out / 'ime_integer.txt').write_text(level_dump, encoding='utf-8', newline='\n')
+    assert current_editor_input_type(level_dump) == 2
+    screenshot('integer_keyboard')
+    adb('shell', 'input', 'text', '80')
+    adb('shell', 'input', 'keyevent', '66')
+    s = fresh()
+    assert s['inputs']['level:ArkLevel']['text'] == '80'
     tap(s['next'], s)
     s = fresh()
     assert s['step'] == 1
@@ -336,11 +355,31 @@ try:
     (out / 'ime_open.txt').write_text(dump, encoding='utf-8', newline='\n')
     open_ime_state = read_ime_state(dump)
     assert open_ime_state['shown'] is True, 'IME closed after short tap'
+    assert current_editor_input_type(dump) == 0x3002, (
+        'Decimal/signed flags missing from actual editor'
+    )
     adb('shell', 'input', 'text', '2560')
     s = fresh()
     field = s['inputs']['current:ScaleDirect']
     assert field['text'] == '2560' and field['focus'], field
     screenshot('keyboard_open')
+    # The visible app comma button must work on keyboards without a comma key.
+    tap(s['decimal_buttons']['current:ScaleDirect'], s)
+    adb('shell', 'input', 'text', '5')
+    s = fresh()
+    decimal_field = s['inputs']['current:ScaleDirect']
+    assert decimal_field['text'] == '2560,5' and decimal_field['focus']
+    assert read_ime_state(adb('shell', 'dumpsys', 'input_method'))['shown']
+    screenshot('decimal_comma_button')
+    for _ in range(len(decimal_field['text'])):
+        adb('shell', 'input', 'keyevent', '67')
+    adb('shell', 'input', 'text', '2.560')
+    s = fresh()
+    ambiguous = s['inputs']['current:ScaleDirect']
+    assert ambiguous['text'] == '2.560' and 'Tausenderpunkt' in ambiguous['hint'], (
+        ambiguous
+    )
+    screenshot('thousands_point_hint')
     # Assignment step 6 requires the real screenshot as visibility evidence.
     # Android native surface panning is not represented by Kivy widget/matrix
     # coordinates here. Do not manufacture a visual PASS from those coordinates.
@@ -377,6 +416,13 @@ try:
         'cancel_preserved': True,
         'short_tap_ime_open_after_2_seconds': True,
         'entered_text': '2560',
+        'numeric_keyboard': {
+            'actual_decimal_flags': 0x3002,
+            'actual_level_flags': 2,
+            'comma_button_text': '2560,5',
+            'ambiguous_input_text': '2.560',
+            'ambiguous_input_hint': ambiguous['hint'],
+        },
         'focused_field_visible': None,
         'done_defocuses': True,
         'done_closes_ime': True,

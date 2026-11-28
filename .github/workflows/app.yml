@@ -41,6 +41,7 @@ jobs:
       - run: python tools/collect_wheel_notices.py
       - run: python tools/build_windows.py
       - run: python tools/run_app_smoke.py --exe dist/NTEGearOptimizer/NTEGearOptimizer.exe --output build/windows_smoke
+      - run: python tools/a6_catalog_windows.py
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: always()
         with:
@@ -48,6 +49,7 @@ jobs:
           path: |
             dist/NTE_Gear_Optimizer_v029_Phase2A_Windows_Debug.zip
             build/windows_smoke
+            build/a6_catalog_windows
   android-debug:
     if: github.event_name == 'push' && github.repository == 'Batlh/NTE-Gear-Optimizer' && github.ref == 'refs/heads/v029-phase2a'
     strategy:
@@ -151,9 +153,13 @@ jobs:
           force-avd-creation: true
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: python tools/test_android_touch.py
+          script: |
+            python tools/test_android_touch.py
+            python tools/a6_catalog_android.py
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: always()
         with:
           name: android-touch-evidence
-          path: build/emulator_touch
+          path: |
+            build/emulator_touch
+            build/a6_catalog_android

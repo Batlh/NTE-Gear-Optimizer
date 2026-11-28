@@ -152,3 +152,31 @@ lassen. Keine gespeicherten Nutzerdaten vorhanden; Eingaben gelten je Sitzung.
 - Kiwi links und Titel/Untertitel daneben gemeinsam mittig prüfen.
 - Der Samsung-Schritt-1-Test vom 2026-11-28 ist bestanden; dieser neue Build
   braucht nach dem Review die Scroll-/Update-Gegenprobe auf demselben Gerät.
+
+
+## Ergänzung 2A-6
+
+- Erst nach Review: signiertes Update über 2A-5 installieren, nicht deinstallieren.
+- Normalmodus in Schritten 1–4 messen, jeweils mehrfach hinunter/zurück.
+  Ziel am Samsung bleibt: mindestens 115 fps bei 120 Hz, unter 2 % verpasste
+  Bilder und p95 höchstens 10 ms. Ergebnisse der CI ersetzen das nicht.
+- Ark-Liste: alle Arks mit Typ, alte Daten sichtbar als „1.4 ungeprüft“.
+  Es gibt noch keinen Charakter-Typfilter. Letzten Eintrag auswählen und
+  abbrechen prüfen; nach Scrollen darf kein anderer Eintrag gewählt werden.
+- „Alte Daten ansehen“: Ark-Levelwerte, Sets, Module und Kassetten sind reine
+  Referenzen. Quellen, genaue Werte und Hinweise durchscrollen. Nichts daraus
+  wird automatisch in Eingaben oder Berechnung übernommen.
+- Debug → Belastungstest (nur Test-Build): 300 Ark-Zeilen und 100 Teile-Zeilen
+  bis zum letzten Eintrag durchscrollen. Diese Einträge sind keine Spieldaten.
+  Zusatzfelder an/aus: Schritt 3 enthält drei Feldgruppen. Dieselben Gesten
+  in Normal-/Belastungsmodus vergleichen; echte Eingaben müssen gleich bleiben.
+- Dezimalfelder: Zahlentastatur mit Vorzeichen/Dezimalfunktion. Der sichtbare
+  Kommaknopf neben dem Feld muss auch bei fehlender Kommataste funktionieren.
+  1,5 und -1,5 eingeben; 2.560 muss sichtbar bleiben und Hilfe zu Tausenderpunkten
+  zeigen, niemals still 2,56 ergeben. Auch Einfügen von 1.5 prüfen (Komma-Hilfe).
+- Ark-Level: ganze Zahl, 80 gültig. 80,8 / 80.8 / 80 8 / 80ü8 / Emoji als
+  eingefügter Text erzeugen einen Hinweis direkt am Feld, auch ohne gewählte Ark.
+- Bei offener Tastatur zwischen Zahlenfeldern wechseln: kein Schließen/Flackern.
+  Den vollständigen Bericht mit getrennten GC-, Eingabe-, Clock-, Layout-/Textur-
+  und nicht zugeordneten Zeiten vor dem Beenden exportieren. Keine Optimierung
+  aus einzelnen AVDSwiftShader-Bildraten als Samsung-Erfolg übernehmen.

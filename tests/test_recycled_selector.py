@@ -160,6 +160,8 @@ def test_current_app_constructor_and_selection_use_approved_unfiltered_catalog()
         decorator_list=[],
     )
     namespace = {
+        '__name__': 'nte_gear_optimizer_app.constructor_test',
+        '__package__': 'nte_gear_optimizer_app',
         'Base': FakeButton,
         'ComparisonViewModel': ComparisonViewModel,
         'load_extended_catalog': load_extended_catalog,

@@ -17,3 +17,11 @@ def read_ime_state(dump):
         'manager_input_shown': shown[0],
         'service_window_visible': visible[0],
     }
+
+
+def current_editor_input_type(dump):
+    """Service's current EditorInfo only, never historical/start-input rows."""
+    values = re.findall(r'mInputEditorInfo:\s*\n\s*inputType=0x([0-9a-fA-F]+)\b', dump)
+    if len(values) != 1:
+        raise ValueError('Missing or ambiguous current EditorInfo input type')
+    return int(values[0], 16)

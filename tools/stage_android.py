@@ -29,6 +29,7 @@ shutil.copyfile(root / 'data/SOURCES.md', target / 'DATA_SOURCES.md')
 import json, subprocess, hashlib
 
 info = {
+    'test_build': True,
     'emulator_test_only': __import__('os').environ.get('NTE_ANDROID_ABI') == 'x86_64',
     'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip(),
     'build_inputs': {

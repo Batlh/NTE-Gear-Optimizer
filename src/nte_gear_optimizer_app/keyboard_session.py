@@ -6,10 +6,11 @@ shared keyboard; it is detached before release. No global Window monkeypatch.
 
 
 class KeyboardSession:
-    def __init__(self, window, clock, emit):
+    def __init__(self, window, clock, emit, configure_widget=None):
         self.window = window
         self.clock = clock
         self.emit = emit
+        self.configure_widget = configure_widget
         self.keyboard = None
         self.active = None
         self.input_type = None
@@ -37,7 +38,8 @@ class KeyboardSession:
                 self._detach(self.active)
             if self.keyboard is not None and self.input_type != widget.input_type:
                 self.close()
-            if self.keyboard is None:
+            new_keyboard = self.keyboard is None
+            if new_keyboard:
                 self.keyboard = self.window.request_keyboard(
                     self.native_closed,
                     widget,
@@ -54,6 +56,8 @@ class KeyboardSession:
             self.keyboard.target = widget
             widget.keyboard = self.keyboard
             widget.show_keyboard()
+            if self.configure_widget is not None:
+                self.configure_widget(widget, new_keyboard)
             self.emit('keyboard_focus_handoff', input_type=self.input_type)
         elif self.active is widget:
             self._detach(widget)

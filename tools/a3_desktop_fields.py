@@ -340,6 +340,9 @@ class FieldProbe(ComparisonApp):
         if os.environ.get('NTE_A3_EXPORT_ONLY') == '1':
             yield from self.export_only()
             return
+        from a5_desktop_touch_cases import cases as h01_cases
+
+        yield from h01_cases(self, native_button)
         # Pairwise reduction: every scaling, all applicability flags both on
         # and off, known/unknown scaling, and a released guide profile.
         cases = [

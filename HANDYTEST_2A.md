@@ -129,3 +129,16 @@ lassen. Keine gespeicherten Nutzerdaten vorhanden; Eingaben gelten je Sitzung.
   (bei 120 Hz mindestens 115 fps), unter 2 % verpasste Bilder. Angaben sind
   GL-Bildwechsel-Näherungen, keine Messung physischer Pixel. Frequenzwechsel
   und nicht belastbare Werte werden als ungeprüft ausgewiesen.
+
+## Ergänzung 2A-5
+
+- Signiertes Test-Update über 2A-4 installieren, ohne Deinstallation.
+- Je zehn normale Tipps auf Weiter, „kein Bonus (0)“ und eine Auswahl:
+  zählen, wie viele beim ersten Mal reagieren (z. B. 10/10).
+  Auch 300–400 ms halten und den Finger dabei leicht zittern lassen.
+- Auf einem Feld/Knopf über die Systemschwelle wischen: kein Fokus,
+  keine Tastatur und keine Knopfaktion; Scrollen folgt dem Finger.
+- In den Schritten 1–4 scrollen, auf Aussetzer achten, dann den Kurzbericht
+  exportieren. Er enthält je Berührung TAP/SWIPE, Strecke, Dauer und Slop.
+- Falls als Schritt-1-Zwischenstand geliefert, sind die zusätzliche
+  Bildzeit-Ursachenmessung und Kopfzeile aus Schritt 2/3 noch nicht umgesetzt.

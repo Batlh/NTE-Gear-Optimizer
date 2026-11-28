@@ -15,6 +15,8 @@ from kivy.uix.button import Button
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
 from kivy.utils import platform
+from .touch_intent import TouchIntent
+from .touch_slop import touch_slop_policy
 
 
 class NativeScrollEffect(ScrollEffect):
@@ -40,6 +42,7 @@ class NativeScrollEffect(ScrollEffect):
                 self.native_failure = private_traceback(error)
 
     def start(self, val, t=None):
+        self.skip_tap_stop = False
         if self.native is not None:
             self.native.forceFinished(True)
         self.fling_started = False
@@ -52,6 +55,18 @@ class NativeScrollEffect(ScrollEffect):
         self.is_manual = False
         self.velocity = 0
         self.trigger_velocity_update.cancel()
+
+    def discard_tap(self):
+        # Kivy stops effects even in unknown/tap mode. Its stop(val) would
+        # otherwise apply the last sub-slop displacement and start a fling.
+        self.cancel()
+        self.skip_tap_stop = True
+
+    def stop(self, val, t=None):
+        if getattr(self, 'skip_tap_stop', False):
+            self.skip_tap_stop = False
+            return
+        return super().stop(val, t)
 
     def update_velocity(self, dt):
         if self.native is None:
@@ -76,7 +91,7 @@ class NativeScrollEffect(ScrollEffect):
 
 class ResponsiveScrollView(ScrollView):
     def __init__(self, **kwargs):
-        kwargs.setdefault('scroll_distance', dp(1))
+        kwargs.setdefault('scroll_distance', touch_slop_policy()['window_px'])
         kwargs.setdefault('scroll_timeout', 55)
         kwargs.setdefault('effect_cls', NativeScrollEffect)
         super().__init__(**kwargs)
@@ -100,6 +115,46 @@ class ResponsiveScrollView(ScrollView):
         touch.ud[key] = True
         # Kivy's old scheduled+200ms call becomes an idempotent no-op.
         return super()._do_touch_up(touch, *args)
+
+    def on_scroll_start(self, touch, check_children=True):
+        result = super().on_scroll_start(touch, check_children)
+        state = touch.ud.get(self._get_uid())
+        if (
+            state is not None
+            and not touch.ud.get('in_bar_x')
+            and not touch.ud.get('in_bar_y')
+        ):
+            state['nte_intent'] = TouchIntent(touch.x, touch.y, self.scroll_distance)
+        return result
+
+    def on_scroll_move(self, touch):
+        state = touch.ud.get(self._get_uid(), {})
+        intent = state.get('nte_intent')
+        if intent is not None and state.get('mode') == 'unknown':
+            # Kivy sums abs(dx/dy). Repeated sub-slop jitter must NOT add up
+            # to a swipe; duration/timeout never changes this decision.
+            if intent.move(touch.x, touch.y) == 'TAP':
+                return True
+            state['mode'] = 'scroll'
+            self.clear_preview()
+            # The effect still starts at the original down coordinate, so
+            # crossing the slop applies the full finger displacement now.
+        return super().on_scroll_move(touch)
+
+    def on_scroll_stop(self, touch, check_children=True):
+        state = touch.ud.get(self._get_uid(), {})
+        intent = state.get('nte_intent')
+        if intent is not None:
+            if intent.move(touch.x, touch.y) == 'SWIPE':
+                state['mode'] = 'scroll'
+            elif state.get('mode') == 'unknown':
+                for enabled, effect in [
+                    (self.do_scroll_x, self.effect_x),
+                    (self.do_scroll_y, self.effect_y),
+                ]:
+                    if enabled and isinstance(effect, NativeScrollEffect):
+                        effect.discard_tap()
+        return super().on_scroll_stop(touch, check_children)
 
     def preview_target(self, touch):
         if self._viewport is None or not self.collide_point(*touch.pos):

@@ -26,7 +26,7 @@ jobs:
       - if: matrix.mode == 'update_static'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh run download 46021607782 --repo Batlh/NTE-Gear-Optimizer --name android-debug-apk --dir build/a3_baseline_apk
+        run: gh run download 46084727367 --repo Batlh/NTE-Gear-Optimizer --name android-debug-apk --dir build/a3_baseline_apk
       - if: matrix.mode == 'update_static'
         run: python tools/a3_verify_update_static.py
       - name: Enable isolated CI KVM

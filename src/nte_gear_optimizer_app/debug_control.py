@@ -50,6 +50,9 @@ class DebugControl:
         self.scroll_observer = ScrollObserver(
             Window, Clock, platform, self.journal.emit
         )
+        from .touch_slop import TouchIntentObserver
+
+        self.touch_intent = TouchIntentObserver(Window, self.journal.emit)
         self.metadata = build_metadata()
         self.bound = weakref.WeakSet()
         self.full_report = False
@@ -89,7 +92,7 @@ class DebugControl:
 
     def device(self):
         values = {
-            'app_version': '0.29.0 Phase 2A-4 (Test)',
+            'app_version': '0.29.0 Phase 2A-5 (Test)',
             'commit': self.metadata.get('commit', 'development-unbundled'),
             'version_code': None,
             'platform': platform,
@@ -486,6 +489,7 @@ class DebugControl:
         self.stopped = True
         self.export_pool.shutdown(wait=True, cancel_futures=True)
         self.scroll_observer.stop()
+        self.touch_intent.stop()
         Window.unbind(on_flip=self.performance.frame)
         self.journal.flush_inputs(force=True)
         self.journal.emit('app_stop')

@@ -24,10 +24,10 @@ candidate = Path(
 )
 assert (
     hashlib.sha256(baseline.read_bytes()).hexdigest().upper()
-    == 'ADA14C87AF48910984E7C1D75DC2D5CB94BDD0368FDAE3D724E2481AE15984C5'
+    == 'D463EE1C3EBDD99CB70C92ABB8DBEC30C0DD825D8FF0382E36675875A3E2F99C'
 )
 rows = []
-for role, apk in [('baseline_2a3', baseline), ('candidate_2a4', candidate)]:
+for role, apk in [('baseline_2a4', baseline), ('candidate_2a5', candidate)]:
     certificate = subprocess.check_output(
         [str(tools / 'apksigner'), 'verify', '--print-certs', str(apk)], text=True
     )
@@ -60,8 +60,8 @@ for role, apk in [('baseline_2a3', baseline), ('candidate_2a4', candidate)]:
             'permissions': permissions,
         }
     )
-assert rows[0]['version_code'] == 1004001
-assert rows[1]['version_code'] > 1004001
+assert rows[0]['version_code'] == 1005901
+assert rows[1]['version_code'] > 1005901
 assert not (set(rows[1]['permissions']) - set(rows[0]['permissions'])) & {
     'android.permission.INTERNET',
     'android.permission.READ_EXTERNAL_STORAGE',

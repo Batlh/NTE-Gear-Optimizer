@@ -9,6 +9,8 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.widget import Widget
 from .reconcile_layout import ReconcileLayout
 from .design_tokens import rgba
+from .touch_intent import TouchIntent
+from .touch_slop import touch_slop_policy
 
 
 def patch_source(style):
@@ -38,6 +40,30 @@ class DesignButton(Button):
         self.edge = self.fill
         self.bind(state=self.style, role=self.style, disabled=self.style)
         self.style()
+
+    def on_touch_down(self, touch):
+        accepted = super().on_touch_down(touch)
+        if accepted:
+            touch.ud['nte.button.' + str(self.uid)] = TouchIntent(
+                touch.x, touch.y, touch_slop_policy()['window_px']
+            )
+        return accepted
+
+    def on_touch_move(self, touch):
+        intent = touch.ud.get('nte.button.' + str(self.uid))
+        if intent is not None and intent.move(touch.x, touch.y) == 'SWIPE':
+            self.state = 'normal'
+        return super().on_touch_move(touch)
+
+    def on_touch_up(self, touch):
+        intent = touch.ud.get('nte.button.' + str(self.uid))
+        if intent is not None and intent.move(touch.x, touch.y) == 'SWIPE':
+            # Footer/debug/modal buttons are outside the page ScrollView.
+            # A swipe that ends inside their large hit area must not fire.
+            touch.ungrab(self)
+            self.state = 'normal'
+            return True
+        return super().on_touch_up(touch)
 
     def style(self, *_):
         role = self.role

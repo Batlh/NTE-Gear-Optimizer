@@ -71,6 +71,10 @@ def readable_event(row):
             'mode',
             'operation',
             'duration_ms',
+            'classification',
+            'distance_px',
+            'max_distance_px',
+            'touch_slop_px',
             'position',
         )
         if k in row

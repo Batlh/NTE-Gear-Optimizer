@@ -75,6 +75,9 @@ try:
             break
         except AssertionError:
             pass
+    from a5_android_touch_cases import run as h01_cases
+
+    h01_cases(ui)
     ui.record('design_step1_selection')
     for label, key in [
         ('Leistungstyp', 'DAMAGE'),

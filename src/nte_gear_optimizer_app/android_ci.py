@@ -194,6 +194,8 @@ def install_probe(app):
                 'page_id': id(app.body),
                 'touch_target': app.debug.last_consumer,
                 'touch_chain': app.debug.last_chain,
+                'touch_slop_policy': app.debug.touch_intent.policy,
+                'touch_intents': app.debug.touch_intent.recent,
                 'input_ids': {':'.join(k): id(w) for k, w in app.inputs.items()},
                 'viewport_measurement': getattr(
                     app.keyboard_viewport, 'last_measurement', None

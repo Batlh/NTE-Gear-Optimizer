@@ -220,6 +220,7 @@ def install_probe(app):
                             k: v
                             for k, v in g.get('frame_profile', {}).items()
                             if k != 'rows'
+                            or app.debug.scroll_observer.metrics.current is None
                         },
                     }
                     for g in summary['gestures'][-8:]

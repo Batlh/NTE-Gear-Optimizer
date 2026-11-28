@@ -174,7 +174,12 @@ class ScrollMetrics:
                 old.get('frame_profile', {}).pop('rows', None)
         self.recent.append(row)
         try:
-            self.emit('scroll_gesture_metrics', **row)
+            # CPU detail lives in the bounded report state. Duplicating it in
+            # every rotating log event displaces existing errors/input history.
+            event_row = {k: v for k, v in row.items() if k != 'frame_profile'}
+            if profile is not None:
+                event_row['frame_profile_in_report_state'] = True
+            self.emit('scroll_gesture_metrics', **event_row)
         except Exception:
             pass
 
@@ -187,5 +192,5 @@ class ScrollMetrics:
             if measured
             else None,
             'reference_refresh_hz': self.refresh_hz,
-            'scope': 'At most100retainedgestures; no replacement for Samsung physical-device test.',
+            'scope': 'At most100gesture summaries and latest5raw CPU profiles in this running session. Export the complete report before closing. Not a Samsung physical-device proof.',
         }

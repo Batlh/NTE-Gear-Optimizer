@@ -86,6 +86,7 @@ try:
                 if enabled:
                     f = g['frame_profile']
                     assert f['frames_observed'] > 0
+                    assert len(f['rows']) == f['rows_retained'] > 0
                     assert f['hook_status'] == 'ACTUAL_WINDOW_FLIP_CALL', f
                     assert f['inventory']['page'] == page + 1, f
             blocks.append(

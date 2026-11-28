@@ -146,7 +146,9 @@ lassen. Keine gespeicherten Nutzerdaten vorhanden; Eingaben gelten je Sitzung.
   mindestens 115 fps Median und unter 2 % verpasste Bilder. Display-Abfragen
   dürfen während einer Geste nicht vorkommen. Der vollständige Bericht enthält
   gepufferte Bildzeiten sowie Widget-/Canvas-Zahlen je angezeigter Seite;
-  der Kurzbericht fasst sie zusammen. Frequenzwechsel bleiben als ungeprüft markiert.
+  der Kurzbericht fasst sie zusammen. Die CPU-Bilddaten bleiben im aktuellen
+  Lauf im Speicher: Den vollständigen Bericht vor dem Schließen exportieren
+  (Zusammenfassungen für 100 Gesten, Rohbilder für die letzten 5 Gesten). Frequenzwechsel bleiben als ungeprüft markiert.
 - Kiwi links und Titel/Untertitel daneben gemeinsam mittig prüfen.
 - Der Samsung-Schritt-1-Test vom 2026-11-28 ist bestanden; dieser neue Build
   braucht nach dem Review die Scroll-/Update-Gegenprobe auf demselben Gerät.

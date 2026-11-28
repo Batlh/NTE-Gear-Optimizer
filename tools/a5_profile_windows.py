@@ -159,11 +159,26 @@ class PerformanceProbe(ComparisonApp):
         self.vm.step = 0
         self.render()
         yield 1.2
+        # The existing native ABBA artifacts lose the first drag on each newly
+        # attached page too (12/16 measured). Keep that readiness limitation
+        # visible; never treat a no-movement gesture as an idle/inertia proof.
+        self.drag(False)
+        yield 2.3
+        self.idle_warmup = {
+            'measured_gestures': self.debug.scroll_observer.metrics.summary()[
+                'measured_gesture_count'
+            ],
+            'viewport_height': self.scroll.viewport_size[1],
+            'scroll_height': self.scroll.height,
+            'scroll_y': self.scroll.scroll_y,
+            'effect_bounds': [self.scroll.effect_y.min, self.scroll.effect_y.max],
+        }
+        assert self.scroll.viewport_size[1] > self.scroll.height, self.idle_warmup
         self.debug.gc_policy.request_mode('BOTH')
         yield 0.8
         assert self.debug.gc_policy.mode == 'BOTH'
         self.idle_diagnostics = []
-        self.drag(False)
+        self.drag(True)
         for delay in [1.0, 1.3, 2.7, 5.0, 10.0]:
             yield delay
             m = self.debug.scroll_observer.metrics
@@ -353,6 +368,7 @@ class PerformanceProbe(ComparisonApp):
             'profiling_blocks': self.blocks,
             'memory_samples': getattr(self, 'memory_samples', []),
             'idle_diagnostics': getattr(self, 'idle_diagnostics', []),
+            'idle_warmup': getattr(self, 'idle_warmup', None),
             'gc_policy': self.debug.gc_policy.snapshot(),
             'idle_flips_in_two_seconds': getattr(
                 self, 'idle_flips_in_two_seconds', None

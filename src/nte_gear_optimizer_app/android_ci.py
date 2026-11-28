@@ -217,7 +217,16 @@ def install_probe(app):
                     {
                         **g,
                         'frame_profile': {
-                            k: v
+                            k: (
+                                {
+                                    kk: vv
+                                    for kk, vv in v.items()
+                                    if kk != 'frames'
+                                    or app.debug.scroll_observer.metrics.current is None
+                                }
+                                if k == 'attribution'
+                                else v
+                            )
                             for k, v in g.get('frame_profile', {}).items()
                             if k != 'rows'
                             or app.debug.scroll_observer.metrics.current is None

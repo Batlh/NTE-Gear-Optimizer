@@ -3,6 +3,7 @@
 from collections import deque
 from functools import wraps
 import statistics, math, time
+from .frame_attribution import Attribution, CATEGORIES
 
 CURRENT = None
 PHASES = ('layout', 'canvas_build', 'keyboard_probe', 'viewport')
@@ -33,6 +34,7 @@ def phase(name):
                 return fn(*args, **kwargs)
             finally:
                 p.add(name, (p.clock() - t) * 1000)
+                p.attribution.span(name, t, p.clock())
 
         return call
 
@@ -94,6 +96,11 @@ class FrameProfiler:
         CURRENT = self
         self.window, self.active, self.clock = window, active, clock
         self.enabled = True
+        self.attribution = Attribution(self.recording, clock)
+        self.attribution_rows = deque(maxlen=1200)
+        self.pages_seen = set()
+        self.first_view = None
+        self.runtime_hooks = None
         self.rows = deque(maxlen=1200)
         self.total = 0
         self.pending = {}
@@ -121,12 +128,21 @@ class FrameProfiler:
         self.pending[name] = (old[0] + ms, old[1] + 1)
 
     def begin(self):
+        self.attribution.reset()
+        self.attribution_rows.clear()
+        self.view_label = None
+        self.first_view = None
         self.rows.clear()
         self.pending.clear()
         self.total = 0
         self.started = self.clock()
         self.last = None
         self.draw_start = None
+
+    def note_view(self, label):
+        if self.view_label is None:
+            self.view_label = label
+            self.first_view = label not in self.pages_seen
 
     def queue_inventory(self, root, page=None):
         self.next_root = root
@@ -171,6 +187,14 @@ class FrameProfiler:
             get('layout')[1],
             get('canvas_build')[1],
         ]
+        lower = self.last if self.last is not None else self.started
+        if self.draw_start is not None:
+            self.attribution.span('draw', self.draw_start, now - (flip_ms or 0) / 1000)
+        if flip_ms is not None:
+            self.attribution.span('flip', now - flip_ms / 1000, now)
+        attribution_row = self.attribution.frame(lower, now)
+        attribution_row['interval_available'] = self.last is not None
+        self.attribution_rows.append(attribution_row)
         self.rows.append([round(v, 4) if isinstance(v, float) else v for v in row])
         self.total += 1
         self.last = now
@@ -192,10 +216,26 @@ class FrameProfiler:
                 for i, name in enumerate(self.columns)
             },
             'inventory': self.cached_inventory,
+            'attribution': {
+                'schema': 1,
+                'categories': CATEGORIES,
+                'callback_names': self.attribution.names[:],
+                'frames': list(self.attribution_rows),
+                'first_scroll_on_view': self.first_view,
+                'view_label': getattr(self, 'view_label', None),
+                'runtime_hooks': self.runtime_hooks.status
+                if self.runtime_hooks
+                else 'NOT_INSTALLED',
+                'texture_scope': 'CoreLabel.refresh new texture identities only; not all GPU allocations/image uploads. First-scroll flag refers to current page, not physical visibility.',
+                'accounting': 'Exclusive interval union with priority; unassigned includes scheduler/idle/driver gaps and observer overhead. Clock totals are inclusive; do not add them again. Overflow makes attribution incomplete.',
+            },
             'rows': rows,
             'scope': 'Buffered CPU wall spans; BoxLayout calls; draw dispatch includes canvas submission; flip includes driver/OS wait, not GPU execution timing. Inclusive/nested spans must not be summed as exclusive costs.',
         }
+        if rows and getattr(self, 'view_label', None) is not None:
+            self.pages_seen.add(self.view_label)
         self.rows.clear()
+        self.attribution_rows.clear()
         self.pending.clear()
         self.total = 0
         self.last = None
@@ -203,6 +243,8 @@ class FrameProfiler:
 
     def stop(self):
         global CURRENT
+        if self.runtime_hooks is not None:
+            self.runtime_hooks.stop()
         if self.window is not None:
             self.window.unbind(on_draw=self.before_draw, on_flip=self.before_flip)
             if self.hook_status == 'ACTUAL_WINDOW_FLIP_CALL':

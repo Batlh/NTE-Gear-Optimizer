@@ -163,6 +163,12 @@ class PerformanceProbe(ComparisonApp):
                 assert any(
                     g.get('status') == 'MEASURED_GL_FLIP_PROXY' for g in gestures
                 ), (page, gestures)
+                if enabled:
+                    from a6_check_attribution import check_attribution
+
+                    for gesture in gestures:
+                        if gesture.get('status') == 'MEASURED_GL_FLIP_PROXY':
+                            check_attribution(gesture['frame_profile'])
                 self.blocks.append(
                     {'page': page, 'profiling': enabled, 'gestures': gestures}
                 )

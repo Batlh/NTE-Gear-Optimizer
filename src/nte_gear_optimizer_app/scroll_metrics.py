@@ -116,6 +116,8 @@ class ScrollMetrics:
             return
         if g['label'] is not None and g['label'] != label:
             return
+        if self.profile is not None and hasattr(self.profile, 'note_view'):
+            self.profile.note_view(label)
         g['label'] = label
         if g['last_position'] is not None:
             g['distance'] += abs(position - g['last_position'])
@@ -172,6 +174,7 @@ class ScrollMetrics:
             # Raw in-memory frames for the last five gestures only; summaries remain.
             for old in list(self.recent)[:-4]:
                 old.get('frame_profile', {}).pop('rows', None)
+                old.get('frame_profile', {}).get('attribution', {}).pop('frames', None)
         self.recent.append(row)
         try:
             # CPU detail lives in the bounded report state. Duplicating it in

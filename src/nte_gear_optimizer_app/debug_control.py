@@ -67,6 +67,12 @@ class DebugControl:
                 and self.scroll_observer.metrics.current.get('slop_crossed') is not None
             ),
         )
+        from kivy.base import EventLoop
+        from .frame_runtime_hooks import RuntimeHooks
+
+        self.frame_profiler.runtime_hooks = RuntimeHooks(
+            self.frame_profiler, Clock, EventLoop, CoreLabel
+        )
         self.scroll_observer.metrics.profile = self.frame_profiler
         self.metadata = build_metadata()
         self.bound = weakref.WeakSet()
@@ -109,7 +115,7 @@ class DebugControl:
 
     def device(self):
         values = {
-            'app_version': '0.29.0 Phase 2A-5 (Test)',
+            'app_version': '0.29.0 Phase 2A-6 (Profil-Test)',
             'commit': self.metadata.get('commit', 'development-unbundled'),
             'version_code': None,
             'platform': platform,

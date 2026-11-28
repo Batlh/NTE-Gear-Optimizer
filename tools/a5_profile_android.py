@@ -89,6 +89,9 @@ try:
                     assert len(f['rows']) == f['rows_retained'] > 0
                     assert f['hook_status'] == 'ACTUAL_WINDOW_FLIP_CALL', f
                     assert f['inventory']['page'] == page + 1, f
+                    from a6_check_attribution import check_attribution
+
+                    check_attribution(f)
             blocks.append(
                 {
                     'page': page,

@@ -238,9 +238,13 @@ class FrameProfiler:
             },
             'inventory': self.cached_inventory,
             'attribution': {
-                'schema': 1,
+                'schema': 2,
                 'categories': CATEGORIES,
                 'callback_names': self.attribution.names[:],
+                'clock_idle_hook': self.runtime_hooks is not None
+                and self.runtime_hooks.original_idle is not None,
+                'input_poll_hook': self.runtime_hooks is not None
+                and self.runtime_hooks.original_poll is not None,
                 'frames': attribution_frames,
                 'summary': attribution_summary,
                 'first_scroll_on_view': self.first_view,

@@ -7,7 +7,9 @@ import threading
 # Higher priority claims nested time first. All categories are disjoint in
 # exclusive_ms; inclusive callback totals are reported separately.
 CATEGORIES = (
+    'clock_idle',
     'clock',
+    'input_poll',
     'input',
     'draw',
     'flip',

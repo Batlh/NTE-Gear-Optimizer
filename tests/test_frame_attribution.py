@@ -284,3 +284,39 @@ def test_worker_gc_is_bounded_and_attributed_to_its_actual_interval():
     assert r['gc_counts'] == [1, 0, 0]
     assert r['gc_off_ui_events'] == 1
     assert r['unassigned_ms'] == pytest.approx(7)
+
+
+def test_idle_wait_and_input_poll_are_observed_without_changing_results():
+    now = [0.0]
+    p = Attribution(lambda: True, lambda: now[0])
+
+    def idle():
+        now[0] += 0.003
+        return 'same_idle_result'
+
+    def poll():
+        now[0] += 0.001
+        return 'same_poll_result'
+
+    clock = SimpleNamespace(
+        on_schedule=lambda ev: None,
+        get_events=lambda: [],
+        get_before_frame_events=lambda: [],
+        idle=idle,
+    )
+    loop = SimpleNamespace(post_dispatch_input=lambda *a: None, dispatch_input=poll)
+
+    class Label:
+        def refresh(self):
+            pass
+
+    hooks = RuntimeHooks(SimpleNamespace(attribution=p), clock, loop, Label)
+    assert clock.idle() == 'same_idle_result'
+    assert loop.dispatch_input() == 'same_poll_result'
+    f = p.frame(0, 0.01)
+    values = dict(zip(CATEGORIES, f['exclusive_ms']))
+    assert values['clock_idle'] == pytest.approx(3)
+    assert values['input_poll'] == pytest.approx(1)
+    assert f['unassigned_ms'] == pytest.approx(6)
+    hooks.stop()
+    assert clock.idle is idle and loop.dispatch_input is poll

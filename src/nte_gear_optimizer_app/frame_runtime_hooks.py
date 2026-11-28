@@ -62,6 +62,8 @@ class RuntimeHooks:
         self.p = profiler.attribution
         self.clock, self.event_loop, self.core_label = clock, event_loop, core_label
         self.original_schedule = clock.on_schedule
+        self.original_idle = getattr(clock, 'idle', None)
+        self.original_poll = getattr(event_loop, 'dispatch_input', None)
         self.original_input = event_loop.post_dispatch_input
         self.original_refresh = core_label.refresh
         self.p.install_gc()
@@ -100,6 +102,31 @@ class RuntimeHooks:
                 if label.texture is not None and label.texture is not before:
                     p.texture_changes += 1
 
+        def idle():
+            p = self.p
+            if not p.recording():
+                return self.original_idle()
+            start = p.clock()
+            try:
+                return self.original_idle()
+            finally:
+                p.span('clock_idle', start, p.clock())
+
+        def poll():
+            p = self.p
+            if not p.recording():
+                return self.original_poll()
+            start = p.clock()
+            try:
+                return self.original_poll()
+            finally:
+                p.span('input_poll', start, p.clock())
+
+        self.idle, self.poll = idle, poll
+        if self.original_idle is not None:
+            clock.idle = idle
+        if self.original_poll is not None:
+            event_loop.dispatch_input = poll
         self.input_dispatch, self.refresh = input_dispatch, refresh
         event_loop.post_dispatch_input = input_dispatch
         core_label.refresh = refresh
@@ -116,6 +143,10 @@ class RuntimeHooks:
     def stop(self):
         self.p.enabled = False
         self.clock.on_schedule = self.original_schedule
+        if self.original_idle is not None:
+            self.clock.idle = self.original_idle
+        if self.original_poll is not None:
+            self.event_loop.dispatch_input = self.original_poll
         self.event_loop.post_dispatch_input = self.original_input
         self.core_label.refresh = self.original_refresh
         for event in self.clock.get_events() + self.clock.get_before_frame_events():

@@ -4,6 +4,8 @@
 def check_attribution(profile):
     a = profile['attribution']
     assert a['runtime_hooks'] == 'INSTALLED_CLOCK_INPUT_GC_CORELABEL', a
+    if a['schema'] >= 2:
+        assert a['clock_idle_hook'] and a['input_poll_hook']
     frames = a['frames']
     assert len(frames) == profile['rows_retained'] > 0
     assert any(f['clock_calls'] > 0 for f in frames), (

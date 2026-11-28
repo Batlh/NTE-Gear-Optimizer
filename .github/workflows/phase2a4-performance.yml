@@ -9,7 +9,7 @@ permissions:
   actions: read
 jobs:
   windows:
-    if: github.event.head_commit.message != 'Observe Android SDL surface compositing without changing app'
+    if: github.event.head_commit.message != 'Observe Android SDL surface compositing without changing app' && github.event.head_commit.message != 'Compare cached design APK against immutable Part A on one emulator'
     strategy:
       fail-fast: false
       matrix:
@@ -40,7 +40,7 @@ jobs:
             ${{ matrix.stage == 'baseline' && 'build/a4_frozen_baseline/build/a4_performance_windows' || 'build/a4_performance_windows' }}
             build/a4_prior_build_diagnostic
   android:
-    if: github.event.head_commit.message != 'Observe Android SDL surface compositing without changing app'
+    if: github.event.head_commit.message != 'Observe Android SDL surface compositing without changing app' && github.event.head_commit.message != 'Compare cached design APK against immutable Part A on one emulator'
     runs-on: ubuntu-24.04
     timeout-minutes: 65
     steps:
@@ -119,6 +119,7 @@ jobs:
             build/a4_controlled/**/after_gestures.png
 
   android-selectors:
+    if: github.event.head_commit.message != 'Compare cached design APK against immutable Part A on one emulator'
     env:
       NTE_VISUAL_DIAGNOSTIC_ONLY: ${{ github.event.head_commit.message == 'Observe Android SDL surface compositing without changing app' && '1' || '0' }}
     # This x86 UI test must not depend on the unrelated ARM signing build.

@@ -41,6 +41,12 @@ def install_probe(app):
     Window.bind(on_flip=flip_count)
 
     def performance_intent(intent):
+        if intent.hasExtra('nte_ci_gc_mode'):
+            mode = str(intent.getStringExtra('nte_ci_gc_mode'))
+            Clock.schedule_once(
+                lambda dt, value=mode: app.debug.gc_policy.request_mode(value), 0
+            )
+
         if intent.hasExtra('nte_ci_pause_snapshot'):
             enabled = bool(intent.getBooleanExtra('nte_ci_pause_snapshot', True))
             Clock.schedule_once(
@@ -231,6 +237,7 @@ def install_probe(app):
                 **perf_state,
                 'display': summary['display'],
                 'profiling_enabled': app.debug.frame_profiler.enabled,
+                'gc_policy': app.debug.gc_policy.snapshot(),
                 'keyboard_probe_skips': app.debug.keyboard_probe_skips,
                 'ci_snapshots_deferred': app.debug.ci_snapshots_deferred,
                 'ci_snapshot_pause': app.debug.pause_ci_snapshot_on_scroll,

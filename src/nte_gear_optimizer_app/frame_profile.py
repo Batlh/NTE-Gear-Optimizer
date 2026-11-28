@@ -101,6 +101,7 @@ class FrameProfiler:
         self.pages_seen = set()
         self.first_view = None
         self.runtime_hooks = None
+        self.gc_policy = None
         self.rows = deque(maxlen=1200)
         self.total = 0
         self.pending = {}
@@ -138,6 +139,10 @@ class FrameProfiler:
         self.started = self.clock()
         self.last = None
         self.draw_start = None
+
+    def gesture_started(self):
+        if self.gc_policy is not None:
+            self.gc_policy.begin()
 
     def note_view(self, label):
         if self.view_label is None:
@@ -205,6 +210,8 @@ class FrameProfiler:
         self.attribution.span('measurement', observer_started, self.clock())
 
     def finish(self):
+        if self.gc_policy is not None:
+            self.gc_policy.end()
         rows = list(self.rows)
         attribution_frames = list(self.attribution_rows)
         valid = [f for f in attribution_frames if f['interval_available']]
@@ -237,6 +244,9 @@ class FrameProfiler:
                 for i, name in enumerate(self.columns)
             },
             'inventory': self.cached_inventory,
+            'gc_policy': self.gc_policy.snapshot()
+            if self.gc_policy is not None
+            else None,
             'attribution': {
                 'schema': 2,
                 'categories': CATEGORIES,
@@ -269,6 +279,8 @@ class FrameProfiler:
 
     def stop(self):
         global CURRENT
+        if self.gc_policy is not None:
+            self.gc_policy.stop()
         if self.runtime_hooks is not None:
             self.runtime_hooks.stop()
         if self.window is not None:

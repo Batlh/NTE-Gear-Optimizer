@@ -133,6 +133,8 @@ class ScrollObserver:
 
     def tick(self, dt=0):
         self.metrics.settle(dt)
+        if getattr(self, 'gc_policy', None) is not None:
+            self.gc_policy.idle()
         if self.metrics.profile is not None and self.metrics.current is None:
             self.metrics.profile.idle_inventory()
         if self.pending_refresh and self.metrics.current is None:

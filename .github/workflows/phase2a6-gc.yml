@@ -1,0 +1,64 @@
+name: phase2a6-gc
+on:
+  workflow_dispatch:
+  push:
+    branches: [v029-phase2a]
+    paths: [src/nte_gear_optimizer_app/**, tools/a6_*.py, .github/workflows/phase2a6-gc.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 35
+    env:
+      KIVY_GL_BACKEND: angle_sdl2
+      KIVY_NO_ARGS: '1'
+      NTE_TEST_MODE: a4_performance
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.14.10'
+      - run: python -m pip install -r requirements-app.txt
+      - run: python tools/a6_gc_windows.py
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        if: always()
+        with:
+          name: a6-gc-windows-${{ github.run_attempt }}
+          path: build/a5_profile_windows
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.14.10'
+      - name: Bind the exact native source payload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/a3_fetch_probe_apk.py android-emulator-only-apk
+      - name: Isolated CI KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 33
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          force-avd-creation: true
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: python tools/a6_gc_android.py
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        if: always()
+        with:
+          name: a6-gc-android-${{ github.run_attempt }}
+          path: |
+            build/a6_gc_android
+            build/a3_probe_apk.json
+

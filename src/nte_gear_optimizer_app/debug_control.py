@@ -73,6 +73,16 @@ class DebugControl:
         self.frame_profiler.runtime_hooks = RuntimeHooks(
             self.frame_profiler, Clock, EventLoop, CoreLabel
         )
+        from .gesture_gc import GestureGCPolicy
+
+        self.gc_policy = GestureGCPolicy(
+            lambda: (
+                self.scroll_observer.metrics.current is not None
+                or bool(self.app.active_touches)
+            )
+        )
+        self.frame_profiler.gc_policy = self.gc_policy
+        self.scroll_observer.gc_policy = self.gc_policy
         self.scroll_observer.metrics.profile = self.frame_profiler
         self.metadata = build_metadata()
         self.bound = weakref.WeakSet()

@@ -145,14 +145,39 @@ class PerformanceProbe(ComparisonApp):
             self.vm.step = page
             self.render()
             yield 1.2
-            for enabled in (
-                [False, False]
-                if os.environ.get('NTE_A5_COMPARE') == '1'
-                else [True, False, False, True]
-            ):
+            experiments = (
+                [
+                    (True, mode)
+                    for mode in [
+                        'BASE',
+                        'FREEZE',
+                        'DEFER',
+                        'BOTH',
+                        'BOTH',
+                        'DEFER',
+                        'FREEZE',
+                        'BASE',
+                    ]
+                ]
+                if os.environ.get('NTE_A6_GC_COMPARE') == '1'
+                else [
+                    (value, None)
+                    for value in (
+                        [False, False]
+                        if os.environ.get('NTE_A5_COMPARE') == '1'
+                        else [True, False, False, True]
+                    )
+                ]
+            )
+            for enabled, gc_mode in experiments:
                 self.debug.scroll_observer.metrics.finish()
                 if hasattr(self.debug, 'frame_profiler'):
                     self.debug.frame_profiler.enabled = enabled
+                if gc_mode is not None:
+                    self.debug.gc_policy.request_mode(gc_mode)
+                    yield 0.8
+                    assert self.debug.gc_policy.mode == gc_mode
+                    assert self.debug.gc_policy.requested is None
                 before = len(self.debug.scroll_observer.metrics.recent)
                 self.drag(False)
                 yield 2.3
@@ -171,9 +196,39 @@ class PerformanceProbe(ComparisonApp):
                         if gesture.get('status') == 'MEASURED_GL_FLIP_PROXY':
                             check_attribution(gesture['frame_profile'])
                 self.blocks.append(
-                    {'page': page, 'profiling': enabled, 'gestures': deepcopy(gestures)}
+                    {
+                        'page': page,
+                        'gc_mode': gc_mode,
+                        'profiling': enabled,
+                        'gestures': deepcopy(gestures),
+                    }
                 )
             self.capture_view(OUT, 'page_' + str(page))
+        if os.environ.get('NTE_A6_GC_MEMORY') == '1':
+            self.memory_samples = []
+            self.debug.gc_policy.request_mode('BOTH')
+            yield 0.8
+            memory_start_count = self.debug.gc_policy.deferred_gestures
+            for i in range(200):
+                self.drag(bool(i % 2))
+                yield 2.3
+                if i in (19, 99, 199):
+                    self.debug.scroll_observer.metrics.finish()
+                    yield 0.3
+                    from a6_memory import rss_bytes
+
+                    self.memory_samples.append(
+                        {
+                            'gestures': i + 1,
+                            'rss_bytes': rss_bytes(),
+                            'gc': self.debug.gc_policy.snapshot(),
+                        }
+                    )
+            assert self.debug.gc_policy.deferred_gestures - memory_start_count >= 200
+            values = [s['rss_bytes'] for s in self.memory_samples]
+            assert values[-1] <= values[1] + max(8 * 1024 * 1024, values[1] * 0.05), (
+                values
+            )
 
     def finish(self):
         summary = self.debug.scroll_observer.summary()
@@ -194,6 +249,8 @@ class PerformanceProbe(ComparisonApp):
             'failure': self.failure,
             'scroll_summary': summary,
             'profiling_blocks': self.blocks,
+            'memory_samples': getattr(self, 'memory_samples', []),
+            'gc_policy': self.debug.gc_policy.snapshot(),
             'idle_flips_in_two_seconds': getattr(
                 self, 'idle_flips_in_two_seconds', None
             ),

@@ -103,6 +103,8 @@ class ScrollMetrics:
             and math.hypot(x - g['origin'][0], y - g['origin'][1]) > self.touch_slop
         ):
             g['slop_crossed'] = self.clock()
+            if self.profile is not None and hasattr(self.profile, 'gesture_started'):
+                self.profile.gesture_started()
         g['last_touch'] = (x, y)
 
     def end(self, identifier):

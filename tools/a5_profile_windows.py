@@ -186,6 +186,8 @@ class PerformanceProbe(ComparisonApp):
                     )
                 ]
             )
+            if os.environ.get('NTE_A6_PROFILE_COMPARE') == '1':
+                experiments = [(True, 'BASE'), (True, 'BASE')]
             for enabled, gc_mode in experiments:
                 self.debug.scroll_observer.metrics.finish()
                 if hasattr(self.debug, 'frame_profiler'):

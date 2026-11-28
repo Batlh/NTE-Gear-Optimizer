@@ -37,6 +37,21 @@ try:
         raise AssertionError('No native snapshot')
     ui.choose('Leistungstyp', 'DAMAGE')
     ui.choose('Skalierung', 'ANG')
+    if os.environ.get('NTE_A6_PROFILE_COMPARE') == '1':
+        ui.adb(
+            'shell',
+            'am',
+            'start',
+            '--activity-single-top',
+            '-n',
+            'io.github.batlh.nte_gear_optimizer/org.kivy.android.PythonActivity',
+            '--es',
+            'nte_ci_gc_mode',
+            'BASE',
+        )
+        time.sleep(0.8)
+        assert ui.fresh()['performance_probe']['gc_policy']['mode'] == 'BASE'
+
     for page in range(4):
         s = ui.fresh()
         assert s['step'] == page
@@ -44,7 +59,12 @@ try:
             baseline
             or s['performance_probe']['display_listener_status'] == 'REGISTERED'
         ), s['performance_probe']
-        for enabled in [False, False] if compare else [True, False, False, True]:
+        profile_modes = (
+            [True, True]
+            if os.environ.get('NTE_A6_PROFILE_COMPARE') == '1'
+            else ([False, False] if compare else [True, False, False, True])
+        )
+        for enabled in profile_modes:
             ui.adb(
                 'shell',
                 'am',

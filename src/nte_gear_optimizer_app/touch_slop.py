@@ -57,20 +57,24 @@ class TouchIntentObserver:
     def motion(self, _, kind, touch):
         if not getattr(touch, 'is_touch', True):
             return False
-        key = str(touch.uid)
+        # Native uid is stable for the lifetime of a touch. Format its report
+        # identity once on begin, never allocate a label on every move.
+        uid = touch.uid
         x, y = touch.sx * self.window.width, touch.sy * self.window.height
         if kind == 'begin':
-            self.active[key] = TouchIntent(x, y, self.policy['window_px'])
-        elif key in self.active:
-            intent = self.active[key]
-            if kind == 'end':
-                row = dict(touch_id=key, **intent.finish(x, y))
-                self.recent.append(row)
-                self.recent = self.recent[-16:]
-                self.emit('touch_intent', **row)
-                del self.active[key]
-            else:
-                intent.move(x, y)
+            self.active[uid] = (str(uid), TouchIntent(x, y, self.policy['window_px']))
+        else:
+            current = self.active.get(uid)
+            if current is not None:
+                key, intent = current
+                if kind == 'end':
+                    row = dict(touch_id=key, **intent.finish(x, y))
+                    self.recent.append(row)
+                    self.recent = self.recent[-16:]
+                    self.emit('touch_intent', **row)
+                    del self.active[uid]
+                else:
+                    intent.move(x, y)
         return False
 
     def stop(self):

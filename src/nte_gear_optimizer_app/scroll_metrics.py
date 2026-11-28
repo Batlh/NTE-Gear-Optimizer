@@ -54,7 +54,7 @@ class ScrollMetrics:
             'refresh_samples': [{'elapsed_ms': 0, 'hz': self.refresh_hz}],
             'start': self.clock(),
             'origin': (x, y),
-            'last_touch': (x, y),
+            'last_touch': [x, y],
             'released': False,
             'first_drag': None,
             'slop_crossed': None,
@@ -96,7 +96,7 @@ class ScrollMetrics:
         g = self.current
         if g is None or g['touch_id'] != str(identifier):
             return
-        if (x, y) != g['origin'] and g['first_drag'] is None:
+        if g['first_drag'] is None and (x != g['origin'][0] or y != g['origin'][1]):
             g['first_drag'] = self.clock()
         if (
             g['slop_crossed'] is None
@@ -105,7 +105,8 @@ class ScrollMetrics:
             g['slop_crossed'] = self.clock()
             if self.profile is not None and hasattr(self.profile, 'gesture_started'):
                 self.profile.gesture_started()
-        g['last_touch'] = (x, y)
+        g['last_touch'][0] = x
+        g['last_touch'][1] = y
 
     def end(self, identifier):
         if self.current is not None and self.current['touch_id'] == str(identifier):

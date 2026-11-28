@@ -65,6 +65,8 @@ class ScrollObserver:
     def __init__(self, window, clock, platform, emit, touch_slop=8):
         self.window, self.clock = window, clock
         self.platform = platform
+        self.native_touch_uid = None
+        self.touch_identifier = None
         self.pending_refresh = False
         self.refresh_reads = 1
         self.refresh_reads_during_gesture = 0
@@ -143,15 +145,19 @@ class ScrollObserver:
     def motion(self, _, kind, touch):
         if not getattr(touch, 'is_touch', True):
             return False
-        identifier = str(touch.uid)
-        point = (touch.sx * self.window.width, touch.sy * self.window.height)
+        x = touch.sx * self.window.width
+        y = touch.sy * self.window.height
         if kind == 'begin':
+            self.native_touch_uid = touch.uid
+            self.touch_identifier = str(touch.uid)
             self.metrics.finish()
-            self.metrics.begin(identifier, *point)
-        elif kind == 'update':
-            self.metrics.move(identifier, *point)
-        elif kind == 'end':
-            self.metrics.end(identifier)
+            self.metrics.begin(self.touch_identifier, x, y)
+        elif touch.uid == self.native_touch_uid:
+            if kind == 'update':
+                self.metrics.move(self.touch_identifier, x, y)
+            elif kind == 'end':
+                self.metrics.end(self.touch_identifier)
+                self.native_touch_uid = self.touch_identifier = None
         return False
 
     def attach(self, scroll, label):

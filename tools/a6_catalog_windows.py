@@ -142,7 +142,8 @@ class CatalogProbe(Base):
                 break
             page = self.scroll
             self.scroll = scroll
-            self.drag(False)
+            # True is pointer bottom-to-top: reveal later list entries.
+            self.drag(True)
             self.scroll = page
             yield 1.1
         else:

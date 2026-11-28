@@ -157,7 +157,10 @@ lassen. Keine gespeicherten Nutzerdaten vorhanden; Eingaben gelten je Sitzung.
 ## Ergänzung 2A-6
 
 - Erst nach Review: signiertes Update über 2A-5 installieren, nicht deinstallieren.
-- Normalmodus in Schritten 1–4 messen, jeweils mehrfach hinunter/zurück.
+- Normalmodus: je fünf Wischgesten in Schritt 1–4 und in zwei Listen
+  durchführen, darunter die Ark-Auswahl mit echten Daten. Diese zeigt derzeit
+  bereits alle 51 Arks, weil die Charakter-Typzuordnung fehlt. Nicht mit den
+  300 synthetischen Ark-Zeilen des Belastungstests verwechseln.
   Ziel am Samsung bleibt: mindestens 115 fps bei 120 Hz, unter 2 % verpasste
   Bilder und p95 höchstens 10 ms. Ergebnisse der CI ersetzen das nicht.
 - Ark-Liste: alle Arks mit Typ, alte Daten sichtbar als „1.4 ungeprüft“.
@@ -168,8 +171,10 @@ lassen. Keine gespeicherten Nutzerdaten vorhanden; Eingaben gelten je Sitzung.
   wird automatisch in Eingaben oder Berechnung übernommen.
 - Debug → Belastungstest (nur Test-Build): 300 Ark-Zeilen und 100 Teile-Zeilen
   bis zum letzten Eintrag durchscrollen. Diese Einträge sind keine Spieldaten.
-  Zusatzfelder an/aus: Schritt 3 enthält drei Feldgruppen. Dieselben Gesten
-  in Normal-/Belastungsmodus vergleichen; echte Eingaben müssen gleich bleiben.
+  Zusatzfelder an/aus: Schritt 3 enthält drei Feldgruppen. Danach dieselben
+  fünf Gesten je Schritt/Liste im Belastungsmodus wiederholen; echte Eingaben
+  müssen gleich bleiben. Ziel: höchstens 1 Prozentpunkt mehr verpasste Bilder
+  als im Normalmodus.
 - Dezimalfelder: Zahlentastatur mit Vorzeichen/Dezimalfunktion. Der sichtbare
   Kommaknopf neben dem Feld muss auch bei fehlender Kommataste funktionieren.
   1,5 und -1,5 eingeben; 2.560 muss sichtbar bleiben und Hilfe zu Tausenderpunkten
@@ -180,3 +185,8 @@ lassen. Keine gespeicherten Nutzerdaten vorhanden; Eingaben gelten je Sitzung.
   Den vollständigen Bericht mit getrennten GC-, Eingabe-, Clock-, Layout-/Textur-
   und nicht zugeordneten Zeiten vor dem Beenden exportieren. Keine Optimierung
   aus einzelnen AVDSwiftShader-Bildraten als Samsung-Erfolg übernehmen.
+
+- Vollständigen Bericht für Normal- und Belastungsblock getrennt exportieren.
+  Für eine gezielte Prüfung einer Seite/Liste direkt nach deren fünf Gesten
+  exportieren: Nur die letzten fünf Gesten behalten Rohbildprofile; ältere
+  Gesten bleiben als Zusammenfassungen erhalten. Vor dem Beenden exportieren.

@@ -154,7 +154,11 @@ class FrameProfiler:
         self.next_page = page
 
     def idle_inventory(self):
-        if self.next_root is not None and not self.active():
+        if (
+            self.next_root is not None
+            and not self.active()
+            and (self.gc_policy is None or not self.gc_policy.busy())
+        ):
             self.cached_inventory = inventory(self.next_root)
             self.cached_inventory['page'] = self.next_page
             self.next_root = None
@@ -243,7 +247,13 @@ class FrameProfiler:
                 name: summary([r[i] for r in rows if r[i] is not None])
                 for i, name in enumerate(self.columns)
             },
-            'inventory': self.cached_inventory,
+            'inventory': self.cached_inventory
+            if self.next_root is None
+            else {
+                'status': 'UNVERIFIED_PENDING_IDLE_SAMPLE',
+                'requested_view': self.next_page,
+                'scope': 'Do not attribute the previous root inventory to a newly opened modal.',
+            },
             'gc_policy': self.gc_policy.snapshot()
             if self.gc_policy is not None
             else None,

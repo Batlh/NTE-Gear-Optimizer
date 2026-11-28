@@ -97,6 +97,21 @@ class ResponsiveScrollView(ScrollView):
         super().__init__(**kwargs)
         self.preview = None
 
+    def _get_uid(self, prefix='sv'):
+        # Pinned Kivy2.3.2 formats these keys on every touch dispatch. Their
+        # value is immutable for a widget; preserve the exact base spelling.
+        if prefix == 'sv':
+            value = getattr(self, '_nte_sv_key', None)
+            if value is None:
+                value = self._nte_sv_key = super()._get_uid(prefix)
+            return value
+        if prefix == 'svavoid':
+            value = getattr(self, '_nte_avoid_key', None)
+            if value is None:
+                value = self._nte_avoid_key = super()._get_uid(prefix)
+            return value
+        return super()._get_uid(prefix)
+
     def _change_touch_mode(self, *args):
         # Do not send an unconfirmed gesture to a child while the finger is
         # still down: a later swipe must not focus/open the keyboard.
@@ -128,8 +143,8 @@ class ResponsiveScrollView(ScrollView):
         return result
 
     def on_scroll_move(self, touch):
-        state = touch.ud.get(self._get_uid(), {})
-        intent = state.get('nte_intent')
+        state = touch.ud.get(self._get_uid())
+        intent = state.get('nte_intent') if state is not None else None
         if intent is not None and state.get('mode') == 'unknown':
             # Kivy sums abs(dx/dy). Repeated sub-slop jitter must NOT add up
             # to a swipe; duration/timeout never changes this decision.
@@ -142,8 +157,8 @@ class ResponsiveScrollView(ScrollView):
         return super().on_scroll_move(touch)
 
     def on_scroll_stop(self, touch, check_children=True):
-        state = touch.ud.get(self._get_uid(), {})
-        intent = state.get('nte_intent')
+        state = touch.ud.get(self._get_uid())
+        intent = state.get('nte_intent') if state is not None else None
         if intent is not None:
             if intent.move(touch.x, touch.y) == 'SWIPE':
                 state['mode'] = 'scroll'
@@ -206,8 +221,8 @@ class ResponsiveScrollView(ScrollView):
 
     def on_touch_move(self, touch):
         result = super().on_touch_move(touch)
-        intent = touch.ud.get(self._get_uid(), {})
-        if intent.get('mode') == 'scroll':
+        intent = touch.ud.get(self._get_uid())
+        if intent is not None and intent.get('mode') == 'scroll':
             self.clear_preview()
         return result
 

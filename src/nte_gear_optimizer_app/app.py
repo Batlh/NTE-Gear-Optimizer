@@ -28,6 +28,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from .responsive_scroll import ResponsiveScrollView
+from .recycled_selector import RecycledSelector
 from kivy.uix.modalview import ModalView
 from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.uix.image import Image
@@ -41,6 +42,7 @@ from .design_widgets import (
 )
 from kivy.uix.textinput import TextInput
 from .viewmodel import ComparisonViewModel, numeric_hint, ark_level_hint
+from .legacy_reference import load_extended_catalog, filter_arks, ark_display_name
 from . import texts as T
 from .performance import timed
 
@@ -61,7 +63,10 @@ class ComparisonApp(App):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.vm = ComparisonViewModel()
+        self.vm = ComparisonViewModel(catalog=load_extended_catalog())
+        # No approved Character -> ArkType mapping exists yet. No inference
+        # from recommendations; absent mapping always keeps every Ark visible.
+        self.character_ark_type_mappings = []
         self.inputs = {}
         self.white_box = None
         self.zero_buttons = []
@@ -182,7 +187,7 @@ class ComparisonApp(App):
         )
         self.selector_specs[label] = (entries, current)
         widget = self.button(
-            displayed,
+            displayed.split('\n', 1)[0],
             lambda: self.open_selector(label, entries, callback),
             cache_key='selector:' + label,
         )
@@ -218,12 +223,6 @@ class ComparisonApp(App):
             size=lambda w, v: setattr(background, 'size', v),
         )
         layout.add_widget(self.label(title, 21))
-        scroll = ResponsiveScrollView(do_scroll_x=False)
-        rows = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(4))
-        rows.bind(minimum_height=rows.setter('height'))
-        self.selector_rows = []
-        if self.debug:
-            self.debug.scroll_observer.attach(scroll, 'selector:' + title)
 
         def select(value):
             if self.debug:
@@ -244,12 +243,12 @@ class ComparisonApp(App):
             self.active_selector = None
             callback(value)
 
-        for name, value in entries:
-            shown = ('✓  ' if value == self.selector_specs[title][1] else '') + name
-            button = self.button(shown, lambda value=value: select(value))
-            rows.add_widget(button)
-            self.selector_rows.append((value, name, button))
-        scroll.add_widget(rows)
+        scroll = RecycledSelector(
+            entries, self.selector_specs[title][1], select, self.debug
+        )
+        if self.debug:
+            self.debug.scroll_observer.attach(scroll, 'selector:' + title)
+        popup.bind(on_dismiss=lambda *_: scroll.close())
         layout.add_widget(scroll)
 
         def cancel_selection():
@@ -280,9 +279,37 @@ class ComparisonApp(App):
                     open_token, failed=True
                 )
             )
+        if self.debug:
+            popup.bind(
+                on_dismiss=lambda *_: self.debug.frame_profiler.queue_inventory(
+                    self.root_box, self.vm.step + 1
+                )
+            )
         popup.open(animation=False)
         if self.debug:
             self.debug.trace.attach_tree(popup)
+            self.debug.frame_profiler.queue_inventory(popup, 'selector:' + title)
+
+    @property
+    def selector_rows(self):
+        if self.active_selector is None:
+            return []
+        return self.active_selector[2].rendered_rows()
+
+    def selector_probe_rows(self, rect):
+        if self.active_selector is None:
+            return []
+        scroll = self.active_selector[2]
+        rendered = {key: widget for key, _, widget in scroll.rendered_rows()}
+        return [
+            {
+                'id': key,
+                'name': name,
+                'index': i,
+                'rect': rect(rendered[key]) if key in rendered else None,
+            }
+            for i, (name, key) in enumerate(scroll.entries)
+        ]
 
     def dismiss_keyboard(self):
         for widget in self.inputs.values():
@@ -926,10 +953,17 @@ class ComparisonApp(App):
             self.vm.character_id,
             lambda value: self.change(self.vm.choose_character, value),
         )
+        arks, self.ark_filter_status = filter_arks(
+            self.vm.catalog['Arks'],
+            self.vm.character_id,
+            self.character_ark_type_mappings,
+        )
+        warning = self.vm.catalog.get('LegacyReferenceWarning')
+        if warning:
+            self.body.add_widget(self.label(warning, 14, color='warning_text'))
         self.spinner(
             T.UI['ark'],
-            [(None, T.NO_CHOICE)]
-            + [(r['ArkID'], r['ArkName']) for r in self.vm.catalog['Arks']],
+            [(None, T.NO_CHOICE)] + [(r['ArkID'], ark_display_name(r)) for r in arks],
             self.vm.ark_id,
             lambda value: self.change(self.vm.choose_ark, value),
         )

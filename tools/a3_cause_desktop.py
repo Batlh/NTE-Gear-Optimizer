@@ -119,7 +119,16 @@ class CauseProbe(ComparisonApp):
         yield 0.8
         self.click(widget)
         yield 0.8
-        option = next(w for key, name, w in self.selector_rows if key == value)
+        for _ in range(60):
+            option = next(
+                (w for key, name, w in self.selector_rows if key == value), None
+            )
+            if option is not None:
+                break
+            _, _, modal_scroll, _ = self.active_selector
+            modal_scroll.scroll_y = max(0, modal_scroll.scroll_y - 0.04)
+            yield 0.3
+        assert option is not None, ('Recycled option missing', label, value)
         self.click(option)
         yield 0.8
         assert self.selector_specs[label][1] == value

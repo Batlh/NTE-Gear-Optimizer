@@ -87,6 +87,8 @@ def screenshot(name):
 
 
 def visible(rect, viewport):
+    if rect is None:
+        return False
     x, y, w, h = rect
     vx, vy, vw, vh = viewport
     return x >= vx - 2 and x + w <= vx + vw + 2 and y >= vy - 2 and y + h <= vy + vh + 2
@@ -176,6 +178,10 @@ def settled_option(expected):
         assert modal, 'Selection closed before tapping the requested option'
         row = next(r for r in modal['rows'] if r['id'] == expected)
         position = row['rect']
+        if position is None:
+            previous, stable = None, 0
+            swipe(modal['scroll'], s)
+            continue
         if (
             previous is not None
             and max(abs(a - b) for a, b in zip(position, previous)) < 1

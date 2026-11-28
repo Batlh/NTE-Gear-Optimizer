@@ -103,6 +103,9 @@ def reach(get_rect, get_view):
     for _ in range(28):
         s = fresh()
         rect, view = get_rect(s), get_view(s)
+        if rect is None:
+            previous, stable = None, 0
+            continue
         physical = screen_rect(rect, s)
         if visible(rect, view, s):
             stable = (
@@ -124,10 +127,25 @@ def choose(label, key):
     tap(rect, s)
     s = fresh()
     assert s['modal']['title'] == label
-    rect, s = reach(
-        lambda s: next(r['rect'] for r in s['modal']['rows'] if r['id'] == key),
-        lambda s: s['modal']['scroll'],
-    )
+    for _ in range(60):
+        modal = s['modal']
+        target = next(r for r in modal['rows'] if r['id'] == key)
+        rendered = [r for r in modal['rows'] if r['rect'] is not None]
+        if target['rect'] is not None:
+            rect, s = reach(
+                lambda s: next(r['rect'] for r in s['modal']['rows'] if r['id'] == key),
+                lambda s: s['modal']['scroll'],
+            )
+            break
+        assert rendered, 'No rendered selector rows'
+        swipe(
+            modal['scroll'],
+            s,
+            reverse=target['index'] < min(r['index'] for r in rendered),
+        )
+        s = fresh()
+    else:
+        raise AssertionError('Virtual option unreachable: ' + str(key))
     tap(rect, s)
     s = fresh()
     assert s['selectors'][label]['selected'] == key

@@ -34,6 +34,7 @@ class DesignButton(Button):
         kwargs.setdefault('background_color', (1, 1, 1, 1))
         kwargs.setdefault('font_size', sp(16))
         super().__init__(**kwargs)
+        self._nte_intent_key = 'nte.button.' + str(self.uid)
         # Exactly the original Button BorderImage: no extra translucent
         # full-area layers, tessellated outlines or per-control matrix stack.
         self.fill = native_patch(self.canvas)
@@ -44,19 +45,19 @@ class DesignButton(Button):
     def on_touch_down(self, touch):
         accepted = super().on_touch_down(touch)
         if accepted:
-            touch.ud['nte.button.' + str(self.uid)] = TouchIntent(
+            touch.ud[self._nte_intent_key] = TouchIntent(
                 touch.x, touch.y, touch_slop_policy()['window_px']
             )
         return accepted
 
     def on_touch_move(self, touch):
-        intent = touch.ud.get('nte.button.' + str(self.uid))
+        intent = touch.ud.get(self._nte_intent_key)
         if intent is not None and intent.move(touch.x, touch.y) == 'SWIPE':
             self.state = 'normal'
         return super().on_touch_move(touch)
 
     def on_touch_up(self, touch):
-        intent = touch.ud.get('nte.button.' + str(self.uid))
+        intent = touch.ud.get(self._nte_intent_key)
         if intent is not None and intent.move(touch.x, touch.y) == 'SWIPE':
             # Footer/debug/modal buttons are outside the page ScrollView.
             # A swipe that ends inside their large hit area must not fire.

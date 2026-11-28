@@ -27,7 +27,7 @@ def install_probe(app):
         return
     from kivy.clock import Clock
     from kivy.core.window import Window
-    from collections import deque
+    from .motion_buffer import MotionBuffer
 
     # This command is unavailable in the delivered ARM64 package. Both the
     # emulator-only build flag and the explicit test launch above are required.
@@ -150,19 +150,10 @@ def install_probe(app):
             'class': str(surface.getClass().getName()),
         }
 
-    motions = deque(maxlen=16)
+    motions = MotionBuffer(16)
 
     def observe_motion(window, kind, touch):
-        motions.append(
-            {
-                'event': kind,
-                'sx': getattr(touch, 'sx', None),
-                'sy': getattr(touch, 'sy', None),
-                'x': getattr(touch, 'x', None),
-                'y': getattr(touch, 'y', None),
-                'device': str(getattr(touch, 'device', '')),
-            }
-        )
+        motions.record(kind, touch)
         return False
 
     Window.bind(on_motion=observe_motion)
@@ -214,7 +205,7 @@ def install_probe(app):
             ),
             'rotation': Window.rotation,
             'softinput_mode': Window.softinput_mode,
-            'motions': list(motions),
+            'motions': motions.snapshot(),
             'frame': [frame.left, frame.top, frame.right, frame.bottom],
             'header': {name: rect(w) for name, w in app.header_widgets.items()},
             'step': app.vm.step,
@@ -343,10 +334,7 @@ def install_probe(app):
                 'scroll_distance': scroll.scroll_distance,
                 'touch_active': scroll._touch is not None,
                 'cancel': rect(cancel),
-                'rows': [
-                    {'id': value, 'name': name, 'rect': rect(w)}
-                    for value, name, w in app.selector_rows
-                ],
+                'rows': app.selector_probe_rows(rect),
             }
         for line in encode_probe(state, sequence):
             print(line, flush=True)

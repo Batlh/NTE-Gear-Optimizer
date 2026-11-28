@@ -1,0 +1,30 @@
+name: phase2a6-idle-diagnostic
+on:
+  workflow_dispatch:
+  push:
+    branches: [v029-phase2a]
+    paths: [tools/a5_profile_windows.py, .github/workflows/phase2a6-idle-diagnostic.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 8
+    env:
+      KIVY_GL_BACKEND: angle_sdl2
+      KIVY_NO_ARGS: '1'
+      NTE_TEST_MODE: a4_performance
+      NTE_A6_IDLE_DIAGNOSTIC: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.14.10'
+      - run: python -m pip install -r requirements-app.txt
+      - run: python tools/a5_profile_windows.py
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        if: always()
+        with:
+          name: a6-idle-diagnostic-windows-${{ github.run_attempt }}
+          path: build/a5_profile_windows

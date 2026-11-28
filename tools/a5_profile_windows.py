@@ -153,7 +153,54 @@ class PerformanceProbe(ComparisonApp):
 
         threading.Thread(target=action, daemon=True).start()
 
+    def gc_idle_diagnostic(self):
+        self.vm.step = 0
+        self.render()
+        yield 1.2
+        self.debug.gc_policy.request_mode('BOTH')
+        yield 0.8
+        assert self.debug.gc_policy.mode == 'BOTH'
+        self.idle_diagnostics = []
+        self.drag(False)
+        for delay in [1.0, 1.3, 2.7, 5.0, 10.0]:
+            yield delay
+            m = self.debug.scroll_observer.metrics
+            g = m.current
+            now = time.perf_counter()
+            effect = self.scroll.effect_y
+            self.idle_diagnostics.append(
+                {
+                    'elapsed_since_diagnostic_drag_s': sum(
+                        [1.0, 1.3, 2.7, 5.0, 10.0][: len(self.idle_diagnostics) + 1]
+                    ),
+                    'contact_ids': list(self.active_touches),
+                    'current': None
+                    if g is None
+                    else {
+                        'touch_id': g['touch_id'],
+                        'released': g['released'],
+                        'last_change_age_ms': None
+                        if g['last_change'] is None
+                        else (now - g['last_change']) * 1000,
+                        'release_age_ms': None
+                        if not g['released']
+                        else (now - g['release_time']) * 1000,
+                        'last_position': g['last_position'],
+                    },
+                    'effect_velocity': effect.velocity,
+                    'effect_manual': effect.is_manual,
+                    'effect_triggered': bool(
+                        effect.trigger_velocity_update.is_triggered
+                    ),
+                    'gc': self.debug.gc_policy.snapshot(),
+                }
+            )
+        assert not self.debug.gc_policy.pause_owned, self.idle_diagnostics
+
     def scenario(self):
+        if os.environ.get('NTE_A6_IDLE_DIAGNOSTIC') == '1':
+            yield from self.gc_idle_diagnostic()
+            return
         # Establish a manual DAMAGE/ANG fixture outside measured gestures;
         # all measurements use real Windows mouse drags, never scroll setters.
         self.vm.set_override('ProfileType', 'DAMAGE')
@@ -278,7 +325,10 @@ class PerformanceProbe(ComparisonApp):
         summary = self.debug.scroll_observer.summary()
         measured = summary['measured_gesture_count']
         result = {
-            'status': 'MEASURED' if not self.failure and measured >= 6 else 'FAIL',
+            'status': 'MEASURED'
+            if not self.failure
+            and (measured >= 6 or os.environ.get('NTE_A6_IDLE_DIAGNOSTIC') == '1')
+            else 'FAIL',
             'source_commit': subprocess.check_output(
                 ['git', 'rev-parse', 'HEAD'], text=True
             ).strip(),
@@ -297,6 +347,7 @@ class PerformanceProbe(ComparisonApp):
             'scroll_summary': summary,
             'profiling_blocks': self.blocks,
             'memory_samples': getattr(self, 'memory_samples', []),
+            'idle_diagnostics': getattr(self, 'idle_diagnostics', []),
             'gc_policy': self.debug.gc_policy.snapshot(),
             'idle_flips_in_two_seconds': getattr(
                 self, 'idle_flips_in_two_seconds', None

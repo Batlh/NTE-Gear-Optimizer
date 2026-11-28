@@ -320,3 +320,21 @@ def test_idle_wait_and_input_poll_are_observed_without_changing_results():
     assert f['unassigned_ms'] == pytest.approx(6)
     hooks.stop()
     assert clock.idle is idle and loop.dispatch_input is poll
+
+
+@pytest.mark.parametrize(
+    'enabled,gesture,expected',
+    [
+        (False, {'slop_crossed': 1}, False),
+        (True, None, False),
+        (True, {'slop_crossed': None}, False),
+        (True, {'slop_crossed': 0.0}, True),
+        (True, {'slop_crossed': 1, 'released': True}, True),
+    ],
+)
+def test_ci_snapshot_quiet_only_during_real_scroll_or_inertia(
+    enabled, gesture, expected
+):
+    from nte_gear_optimizer_app.android_ci import should_defer_snapshot
+
+    assert should_defer_snapshot(enabled, gesture) is expected

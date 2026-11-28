@@ -10,6 +10,12 @@ from .probe_protocol import encode_probe
 from pathlib import Path
 
 
+def should_defer_snapshot(enabled, gesture):
+    return bool(
+        enabled and gesture is not None and gesture.get('slop_crossed') is not None
+    )
+
+
 def install_probe(app):
     metadata = json.loads(Path('BUILD_METADATA.json').read_text(encoding='utf-8'))
     if not metadata.get('emulator_test_only'):
@@ -26,6 +32,8 @@ def install_probe(app):
     # This command is unavailable in the delivered ARM64 package. Both the
     # emulator-only build flag and the explicit test launch above are required.
     perf_state = {'logging': True, 'boundaries': [], 'flip_count': 0}
+    app.debug.pause_ci_snapshot_on_scroll = True
+    app.debug.ci_snapshots_deferred = 0
 
     def flip_count(*args):
         perf_state['flip_count'] += 1
@@ -33,6 +41,15 @@ def install_probe(app):
     Window.bind(on_flip=flip_count)
 
     def performance_intent(intent):
+        if intent.hasExtra('nte_ci_pause_snapshot'):
+            enabled = bool(intent.getBooleanExtra('nte_ci_pause_snapshot', True))
+            Clock.schedule_once(
+                lambda dt, value=enabled: setattr(
+                    app.debug, 'pause_ci_snapshot_on_scroll', value
+                ),
+                0,
+            )
+
         if intent.hasExtra('nte_ci_keyboard_scroll_skip'):
             skip = bool(intent.getBooleanExtra('nte_ci_keyboard_scroll_skip', True))
             Clock.schedule_once(
@@ -151,6 +168,13 @@ def install_probe(app):
 
     def snapshot(dt):
         nonlocal sequence
+        gesture = app.debug.scroll_observer.metrics.current
+        if should_defer_snapshot(app.debug.pause_ci_snapshot_on_scroll, gesture):
+            # CI observation must not serialize the full UI tree, read JNI
+            # geometry or synchronously ask the writer for seq during scrolling.
+            # Resume after inertia; the driver reads a fresh idle snapshot.
+            app.debug.ci_snapshots_deferred += 1
+            return
         sequence += 1
         frame = autoclass('android.graphics.Rect')()
         activity.getWindow().getDecorView().getWindowVisibleDisplayFrame(frame)
@@ -208,6 +232,8 @@ def install_probe(app):
                 'display': summary['display'],
                 'profiling_enabled': app.debug.frame_profiler.enabled,
                 'keyboard_probe_skips': app.debug.keyboard_probe_skips,
+                'ci_snapshots_deferred': app.debug.ci_snapshots_deferred,
+                'ci_snapshot_pause': app.debug.pause_ci_snapshot_on_scroll,
                 'keyboard_scroll_skip': app.debug.skip_closed_keyboard_poll_on_scroll,
                 'refresh_reads': summary['refresh_reads'],
                 'refresh_reads_during_gesture': summary['refresh_reads_during_gesture'],

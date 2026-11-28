@@ -54,6 +54,7 @@ class CatalogProbe(Base):
         self.failure = None
         self.drag_error = None
         self.blocks = []
+        self.list_progress = []
         self.debug.frame_profiler.enabled = True
         Clock.schedule_once(self.advance, 1)
 
@@ -66,6 +67,37 @@ class CatalogProbe(Base):
             and x + widget.width <= sx + scroll.width + 1
             and y + widget.height <= sy + scroll.height + 1
         )
+
+    def selector_diagnostic(self, scroll):
+        def geometry(w):
+            return [*w.to_window(w.x, w.y), *w.size]
+
+        return {
+            'active_selector': self.active_selector is not None,
+            'scroll_y': scroll.scroll_y,
+            'viewport_size': list(scroll.viewport_size),
+            'scroll_rect': geometry(scroll),
+            'layout_rect': geometry(scroll.layout_manager),
+            'effect': {
+                name: getattr(scroll.effect_y, name, None)
+                for name in ['value', 'min', 'max', 'velocity', 'is_manual']
+            },
+            'touch': getattr(scroll._touch, 'uid', None),
+            'rows': [
+                {
+                    'id': key,
+                    'index': w.option_index,
+                    'uid': w.uid,
+                    'rect': geometry(w),
+                    'visible': self.visible(w, scroll),
+                }
+                for key, _, w in scroll.rendered_rows()
+            ],
+            'recent_scroll_summary': [
+                {k: v for k, v in g.items() if k != 'frame_profile'}
+                for g in self.debug.scroll_observer.summary()['gestures'][-3:]
+            ],
+        }
 
     def list_case(self, kind, entries):
         if kind == 'normal_arks':
@@ -82,7 +114,26 @@ class CatalogProbe(Base):
         seen = set()
         max_attached = 0
         original = self.vm.current.copy(), self.vm.item_x.copy(), self.vm.item_y.copy()
-        for _ in range(200):
+        self.diagnostic_scroll = scroll
+        for iteration in range(200):
+            if iteration < 8 or iteration % 10 == 0:
+                self.list_progress.append(
+                    {
+                        'kind': kind,
+                        'iteration': iteration,
+                        **self.selector_diagnostic(scroll),
+                    }
+                )
+            if iteration == 30:
+                first = [
+                    r['scroll_y']
+                    for r in self.list_progress
+                    if r['kind'] == kind and r['iteration'] >= 10
+                ]
+                assert len(set(first)) > 1, (
+                    'No scroll progress after30 actual OS drags',
+                    kind,
+                )
             views = scroll.rendered_rows()
             seen.update(w.uid for _, _, w in views)
             max_attached = max(max_attached, len(views))
@@ -181,6 +232,10 @@ class CatalogProbe(Base):
             'status': 'FAIL' if self.failure else 'MEASURED',
             'failure': self.failure,
             'blocks': self.blocks,
+            'list_progress': self.list_progress,
+            'last_selector_diagnostic': self.selector_diagnostic(self.diagnostic_scroll)
+            if hasattr(self, 'diagnostic_scroll')
+            else None,
             'source_commit': json.loads(metadata.read_text())['commit'],
             'physical_driver_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
             'setup': 'Programmatic catalog/mode/profile setup, actual OS drags/taps for list/scroll evidence',
@@ -188,6 +243,13 @@ class CatalogProbe(Base):
         }
         (out / 'result.json').write_text(
             json.dumps(result, ensure_ascii=False, indent=2) + '\n',
+            encoding='utf-8',
+            newline='\n',
+        )
+        Window.screenshot(name=str(out / 'diagnostic_end.png'))
+        (out / 'events.json').write_text(
+            json.dumps(self.debug.journal.events(), ensure_ascii=False, indent=2)
+            + '\n',
             encoding='utf-8',
             newline='\n',
         )
